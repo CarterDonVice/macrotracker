@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App name — rename here to rename everywhere -->
+    <string name="app_name">Local Macro Tracker</string>
+
+    <!-- Meal sections -->
+    <string name="meal_breakfast">Breakfast</string>
+    <string name="meal_lunch">Lunch</string>
+    <string name="meal_dinner">Dinner</string>
+    <string name="meal_snacks">Snacks</string>
+
+    <!-- Add entry chooser -->
+    <string name="add_saved_premade_food">Saved / Premade Food</string>
+    <string name="add_labeless_food">Labeless Food</string>
+    <string name="add_recipe_meal_prep">Recipe / Meal Prep</string>
+    <string name="add_barcode_scan">Barcode Scan</string>
+    <string name="add_nutrition_label_scan">Nutrition Label Scan</string>
+
+    <!-- Import previous -->
+    <string name="import_previous_breakfast">Import Yesterday\'s Breakfast</string>
+    <string name="import_previous_lunch">Import Yesterday\'s Lunch</string>
+    <string name="import_previous_dinner">Import Yesterday\'s Dinner</string>
+    <string name="import_previous_snacks">Import Yesterday\'s Snacks</string>
+
+    <!-- Macros -->
+    <string name="calories">Calories</string>
+    <string name="protein">Protein</string>
+    <string name="carbs">Carbs</string>
+    <string name="fat">Fat</string>
+    <string name="fiber">Fiber</string>
+    <string name="sugar">Sugar</string>
+    <string name="sodium">Sodium</string>
+
+    <!-- Units -->
+    <string name="unit_g">g</string>
+    <string name="unit_mg">mg</string>
+    <string name="unit_kcal">kcal</string>
+    <string name="unit_mcg">mcg</string>
+
+    <!-- Reminder symbol label -->
+    <string name="reminder_not_saved">Not yet saved to database</string>
+
+    <!-- Settings -->
+    <string name="settings_usda_api_key">USDA API Key</string>
+    <string name="settings_model_status">Local Model Status</string>
+    <string name="settings_select_model_file">Select Model File</string>
+    <string name="settings_model_ready">Model ready</string>
+    <string name="settings_model_not_loaded">No model loaded</string>
+    <string name="settings_model_load_failed">Model load failed</string>
+    <string name="settings_model_loading">Loading model…</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title">Welcome to Local Macro Tracker</string>
+    <string name="onboarding_desc">This app runs entirely on your device. AI-powered features require a local model file (e.g., Gemma-3n E2B). You can use barcode scanning, OCR, and manual entry without a model.</string>
+    <string name="onboarding_skip">Continue Without Model</string>
+    <string name="onboarding_select_model">Select Model File</string>
+
+    <!-- Errors -->
+    <string name="error_no_model">AI features require a local model. Please load one in Settings.</string>
+    <string name="error_no_internet">No internet connection. Using local data only.</string>
+    <string name="error_no_results">No nutrition data found. Please enter values manually.</string>
+    <string name="error_invalid_barcode">Could not read barcode.</string>
+    <string name="error_ocr_incomplete">OCR could not read all fields. Please review and fill in any blanks.</string>
+    <string name="error_usda_key_missing">USDA API key not set. Enter it in Settings for better lookup results.</string>
+
+    <!-- Buttons -->
+    <string name="btn_save">Save</string>
+    <string name="btn_save_add_log">Save + Add to Log</string>
+    <string name="btn_add_log">Add to Log</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_edit">Edit</string>
+    <string name="btn_delete">Delete</string>
+    <string name="btn_confirm">Confirm</string>
+    <string name="btn_search">Search</string>
+
+    <!-- Food categories -->
+    <string name="category_all">All</string>
+    <string name="category_premade_food">Premade Food</string>
+    <string name="category_recipe_meal_prep">Recipe / Meal Prep</string>
+    <string name="category_labeless_food">Labeless Food</string>
+
+    <!-- Exactness -->
+    <string name="exactness_exact">Exact</string>
+    <string name="exactness_estimated">Estimated</string>
+    <string name="exactness_range_format">%1$d–%2$d</string>
+
+    <!-- Daily totals -->
+    <string name="daily_totals">Daily Totals</string>
+    <string name="estimated_indicator">~</string>
+</resources>

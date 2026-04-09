@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Simple green fork/plate icon -->
+    <path
+        android:fillColor="#4CAF50"
+        android:pathData="M54,18 C34.1,18 18,34.1 18,54 C18,73.9 34.1,90 54,90 C73.9,90 90,73.9 90,54 C90,34.1 73.9,18 54,18 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,38 L46,58 L50,58 L50,70 L54,70 L54,58 L58,58 L58,38 L54,38 L54,52 L50,52 L50,38 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M62,38 C62,38 62,50 62,54 C62,58 66,58 66,54 L66,38 Z M64,58 L64,70 L68,70 L68,38" />
+</vector>
