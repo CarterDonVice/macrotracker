@@ -10,7 +10,6 @@ import com.localmacrotracker.app.data.model.FoodCategory
 import com.localmacrotracker.app.data.model.MealSection
 import com.localmacrotracker.app.data.model.SourceType
 import com.localmacrotracker.app.data.network.OcrLabelParser
-import com.localmacrotracker.app.data.network.ParsedNutritionDraft
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,8 +25,16 @@ class NutritionLabelViewModel @Inject constructor(
     private val ocrLabelParser: OcrLabelParser
 ) : ViewModel() {
 
-    private val _draft = MutableStateFlow<ParsedNutritionDraft?>(null)
-    val draft: StateFlow<ParsedNutritionDraft?> = _draft.asStateFlow()
+    data class LabelDraft(
+        val servingText: String = "",
+        val calories: String = "",
+        val protein: String = "",
+        val carbs: String = "",
+        val fat: String = ""
+    )
+
+    private val _draft = MutableStateFlow(LabelDraft())
+    val draft: StateFlow<LabelDraft> = _draft.asStateFlow()
 
     private val _displayName = MutableStateFlow("")
     val displayName: StateFlow<String> = _displayName.asStateFlow()
@@ -35,11 +42,8 @@ class NutritionLabelViewModel @Inject constructor(
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
 
-    fun setDraft(draft: ParsedNutritionDraft) {
+    fun setDraft(draft: LabelDraft) {
         _draft.value = draft
-        if (_displayName.value.isBlank()) {
-            _displayName.value = draft.suggestedName ?: ""
-        }
     }
 
     fun setDisplayName(name: String) {
@@ -49,30 +53,50 @@ class NutritionLabelViewModel @Inject constructor(
     /** Called by screen after OCR text is extracted. Parses and sets draft. */
     fun parseOcrText(ocrText: String) {
         val parsed = ocrLabelParser.parse(ocrText)
-        setDraft(parsed)
+        if (_displayName.value.isBlank()) {
+            _displayName.value = parsed.suggestedName ?: ""
+        }
+        _draft.value = LabelDraft(
+            servingText = parsed.servingText ?: "",
+            calories = parsed.calories?.toString() ?: "",
+            protein = parsed.proteinGrams?.toString() ?: "",
+            carbs = parsed.carbsGrams?.toString() ?: "",
+            fat = parsed.fatGrams?.toString() ?: ""
+        )
     }
 
     /** Alias used by some screen variants. */
     fun setDraftFromOcr(ocrText: String) = parseOcrText(ocrText)
 
+    fun saveAndAddToLog(mealSection: String, logDate: String, save: Boolean) {
+        val ms = MealSection.fromName(mealSection)
+        val date = runCatching { LocalDate.parse(logDate) }.getOrElse { LocalDate.now() }
+        saveAndAddToLog(ms, date, save)
+    }
+
     fun saveAndAddToLog(mealSection: MealSection, logDate: LocalDate, save: Boolean) {
-        val currentDraft = _draft.value ?: return
+        val currentDraft = _draft.value
         viewModelScope.launch {
             _isSaving.value = true
             try {
-                val name = _displayName.value.ifBlank { currentDraft.suggestedName ?: "Unknown Food" }
+                val name = _displayName.value.ifBlank { "Unknown Food" }
+                val calories = currentDraft.calories.toDoubleOrNull() ?: 0.0
+                val protein = currentDraft.protein.toDoubleOrNull() ?: 0.0
+                val carbs = currentDraft.carbs.toDoubleOrNull() ?: 0.0
+                val fat = currentDraft.fat.toDoubleOrNull() ?: 0.0
+                val servingText = currentDraft.servingText.takeIf { it.isNotBlank() }
 
                 val savedFoodId: Long? = if (save) {
                     val entity = SavedFoodEntity(
                         displayName = name,
                         category = FoodCategory.PREMADE_FOOD.name,
                         searchIndexText = name.lowercase(),
-                        servingText = currentDraft.servingText,
-                        servingWeightGrams = currentDraft.servingWeightGrams,
-                        calories = currentDraft.calories ?: 0.0,
-                        proteinGrams = currentDraft.proteinGrams ?: 0.0,
-                        carbsGrams = currentDraft.carbsGrams ?: 0.0,
-                        fatGrams = currentDraft.fatGrams ?: 0.0,
+                        servingText = servingText,
+                        servingWeightGrams = null,
+                        calories = calories,
+                        proteinGrams = protein,
+                        carbsGrams = carbs,
+                        fatGrams = fat,
                         exactnessType = "EXACT",
                         sourceType = SourceType.OCR.name
                     )
@@ -86,13 +110,13 @@ class NutritionLabelViewModel @Inject constructor(
                     mealSection = mealSection.name,
                     linkedSavedFoodId = savedFoodId,
                     displayNameSnapshot = name,
-                    servingTextSnapshot = currentDraft.servingText,
+                    servingTextSnapshot = servingText,
                     quantity = 1.0,
                     unit = "serving",
-                    caloriesExact = currentDraft.calories,
-                    proteinExact = currentDraft.proteinGrams,
-                    carbsExact = currentDraft.carbsGrams,
-                    fatExact = currentDraft.fatGrams,
+                    caloriesExact = calories,
+                    proteinExact = protein,
+                    carbsExact = carbs,
+                    fatExact = fat,
                     isEstimated = false,
                     needsManualSaveReminder = !save,
                     sourceTypeSnapshot = SourceType.OCR.name
