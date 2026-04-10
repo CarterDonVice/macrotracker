@@ -12,8 +12,8 @@ import com.localmacrotracker.app.ui.screens.*
 sealed class Screen(val route: String) {
     object Onboarding : Screen("onboarding")
     object DailyLog : Screen("daily_log")
-    object AddEntryChooser : Screen("add_entry_chooser/{meal_section}") {
-        fun routeFor(mealSection: String) = "add_entry_chooser/$mealSection"
+    object AddEntryChooser : Screen("add_entry_chooser/{meal_section}/{log_date}") {
+        fun routeFor(mealSection: String, logDate: String) = "add_entry_chooser/$mealSection/$logDate"
     }
     object SavedFoodsSearch : Screen("saved_foods_search/{meal_section}/{log_date}") {
         fun routeFor(mealSection: String, logDate: String) =
@@ -65,8 +65,8 @@ fun AppNavigation() {
 
         composable(Screen.DailyLog.route) {
             DailyLogScreen(
-                onAddEntry = { mealSection ->
-                    navController.navigate(Screen.AddEntryChooser.routeFor(mealSection))
+                onAddEntry = { mealSection, logDate ->
+                    navController.navigate(Screen.AddEntryChooser.routeFor(mealSection, logDate))
                 },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
@@ -79,11 +79,16 @@ fun AppNavigation() {
 
         composable(
             route = Screen.AddEntryChooser.route,
-            arguments = listOf(navArgument("meal_section") { type = NavType.StringType })
+            arguments = listOf(
+                navArgument("meal_section") { type = NavType.StringType },
+                navArgument("log_date") { type = NavType.StringType }
+            )
         ) { backStack ->
             val mealSection = backStack.arguments?.getString("meal_section") ?: "BREAKFAST"
+            val logDate = backStack.arguments?.getString("log_date") ?: LocalDate.now().toString()
             AddEntryChooserScreen(
                 mealSection = mealSection,
+                logDate = logDate,
                 onSavedFood = { ms, date ->
                     navController.navigate(Screen.SavedFoodsSearch.routeFor(ms, date))
                 },

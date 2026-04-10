@@ -115,8 +115,11 @@ class MediaPipeInferenceEngine @Inject constructor(
             val cacheDir = File(context.cacheDir, "models").also { it.mkdirs() }
             val filename = uri.lastPathSegment ?: "model.bin"
             val dest = File(cacheDir, filename)
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                dest.outputStream().use { output -> input.copyTo(output) }
+            // Skip copy if file already cached (avoids re-copying large model files on reload)
+            if (!dest.exists() || dest.length() == 0L) {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    dest.outputStream().use { output -> input.copyTo(output) }
+                }
             }
             dest.absolutePath
         } catch (e: Exception) {

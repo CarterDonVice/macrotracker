@@ -90,8 +90,9 @@ class OcrLabelParserImpl @Inject constructor() : OcrLabelParser {
     }
 
     private fun extractTrailingNumber(line: String): Double? {
-        // "Total Fat 12g" → 12.0 | "Calories  250" → 250.0
-        val match = Regex("""(\d+(?:\.\d+)?)\s*g?$""", RegexOption.IGNORE_CASE).find(line.trim())
+        // "Total Fat 12g" → 12.0 | "Sodium 480mg" → 480.0 | "Calories  250" → 250.0
+        val match = Regex("""(\d+(?:\.\d+)?)\s*(?:mcg|mg|g|kcal)?$""", RegexOption.IGNORE_CASE)
+            .find(line.trim())
         return match?.groupValues?.get(1)?.toDoubleOrNull()
     }
 }

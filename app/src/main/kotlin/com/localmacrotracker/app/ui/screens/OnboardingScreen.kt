@@ -7,6 +7,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -34,6 +35,12 @@ fun OnboardingScreen(
 ) {
     val modelStatus by viewModel.modelStatus.collectAsStateWithLifecycle()
     val modelDisplayName by viewModel.modelDisplayName.collectAsStateWithLifecycle()
+    val isOnboardingComplete by viewModel.isOnboardingComplete.collectAsStateWithLifecycle()
+
+    // Auto-navigate past onboarding on subsequent launches
+    LaunchedEffect(isOnboardingComplete) {
+        if (isOnboardingComplete) onContinue()
+    }
 
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -136,13 +143,18 @@ fun OnboardingScreen(
             }
 
             OutlinedButton(
-                onClick = onContinue,
+                onClick = {
+                    viewModel.completeOnboarding()
+                    onContinue()
+                },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = if (modelStatus == ModelStatus.READY) AccentGreen else TextSecondary
+                )
             ) {
                 Text(
-                    text = "Continue Without Model",
+                    text = if (modelStatus == ModelStatus.READY) "Get Started" else "Continue Without Model",
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
             }

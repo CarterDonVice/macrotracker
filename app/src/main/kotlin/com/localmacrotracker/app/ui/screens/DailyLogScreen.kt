@@ -33,7 +33,7 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DailyLogScreen(
-    onAddEntry: (mealSection: String) -> Unit,
+    onAddEntry: (mealSection: String, logDate: String) -> Unit,
     onNavigateToSettings: () -> Unit,
     onEntryTapped: (entryId: Long) -> Unit,
     viewModel: DailyLogViewModel = hiltViewModel()
@@ -108,7 +108,7 @@ fun DailyLogScreen(
                         MealSectionHeader(
                             section = section,
                             totals = sectionTotals,
-                            onAddEntry = { onAddEntry(section.name) },
+                            onAddEntry = { onAddEntry(section.name, selectedDate.toString()) },
                             onImportPrevious = { viewModel.importPreviousSection(section) }
                         )
                     }

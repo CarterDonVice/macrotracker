@@ -17,12 +17,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.localmacrotracker.app.ui.theme.*
-import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEntryChooserScreen(
     mealSection: String,
+    logDate: String,
     onSavedFood: (mealSection: String, logDate: String) -> Unit,
     onLabelessFood: (mealSection: String, logDate: String) -> Unit,
     onRecipe: (mealSection: String, logDate: String) -> Unit,
@@ -30,7 +30,6 @@ fun AddEntryChooserScreen(
     onNutritionLabel: (mealSection: String, logDate: String) -> Unit,
     onBack: () -> Unit
 ) {
-    val todayStr = LocalDate.now().toString()
 
     Scaffold(
         topBar = {
@@ -74,7 +73,7 @@ fun AddEntryChooserScreen(
                 title = "Saved / Premade Food",
                 description = "Search your saved foods, premade items, and previous meal preps.",
                 tint = AccentGreen,
-                onClick = { onSavedFood(mealSection, todayStr) }
+                onClick = { onSavedFood(mealSection, logDate) }
             )
 
             AddOptionCard(
@@ -82,7 +81,7 @@ fun AddEntryChooserScreen(
                 title = "Labeless Food",
                 description = "Describe a food by name or voice. The AI model estimates the nutrition.",
                 tint = EstimatedColor,
-                onClick = { onLabelessFood(mealSection, todayStr) }
+                onClick = { onLabelessFood(mealSection, logDate) }
             )
 
             AddOptionCard(
@@ -90,7 +89,7 @@ fun AddEntryChooserScreen(
                 title = "Recipe / Meal Prep",
                 description = "Build a recipe from ingredients and log one serving.",
                 tint = MacroProtein,
-                onClick = { onRecipe(mealSection, todayStr) }
+                onClick = { onRecipe(mealSection, logDate) }
             )
 
             AddOptionCard(
@@ -98,7 +97,7 @@ fun AddEntryChooserScreen(
                 title = "Barcode Scan",
                 description = "Scan a product barcode to look up nutrition facts automatically.",
                 tint = ReminderAmber,
-                onClick = { onBarcode(mealSection, todayStr) }
+                onClick = { onBarcode(mealSection, logDate) }
             )
 
             AddOptionCard(
@@ -106,7 +105,7 @@ fun AddEntryChooserScreen(
                 title = "Nutrition Label Scan",
                 description = "Photograph a nutrition facts label and extract values with OCR.",
                 tint = MacroCarbs,
-                onClick = { onNutritionLabel(mealSection, todayStr) }
+                onClick = { onNutritionLabel(mealSection, logDate) }
             )
         }
     }

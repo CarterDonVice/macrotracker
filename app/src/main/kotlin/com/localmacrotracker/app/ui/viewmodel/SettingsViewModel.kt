@@ -22,6 +22,9 @@ class SettingsViewModel @Inject constructor(
     private val inferenceEngine: LocalInferenceEngine
 ) : ViewModel() {
 
+    val isOnboardingComplete: StateFlow<Boolean> = prefs.isOnboardingComplete
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     val usdaKey: StateFlow<String> = prefs.usdaApiKey
         .map { it ?: "" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
@@ -37,6 +40,12 @@ class SettingsViewModel @Inject constructor(
 
     private val _isBusy = MutableStateFlow(false)
     val isBusy: StateFlow<Boolean> = _isBusy.asStateFlow()
+
+    fun completeOnboarding() {
+        viewModelScope.launch {
+            prefs.setOnboardingComplete()
+        }
+    }
 
     fun saveUsdaKey(key: String) {
         viewModelScope.launch {
