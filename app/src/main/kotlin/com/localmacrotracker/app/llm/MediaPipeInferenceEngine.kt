@@ -44,7 +44,6 @@ class MediaPipeInferenceEngine @Inject constructor(
             val options = LlmInferenceOptions.builder()
                 .setModelPath(modelPath)
                 .setMaxTokens(MAX_TOKENS)
-                .setTopK(TOP_K)
                 .build()
 
             llmInference?.close()
