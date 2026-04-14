@@ -16,7 +16,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "MediaPipeEngine"
-private const val MAX_TOKENS = 512     // ekv2048 model = 2048 total context; keep output small
+private const val MAX_TOKENS = 256     // 270M model — short context budget, JSON outputs are small
 
 @Singleton
 class MediaPipeInferenceEngine @Inject constructor(

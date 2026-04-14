@@ -47,7 +47,7 @@ class LabelessFoodViewModel @Inject constructor(
                 val ids = foodLogDao.insertEntries(resolved)
                 val inserted = resolved.mapIndexed { i, entry -> entry.copy(id = ids[i]) }
                 _uiState.value = UiState.Results(inserted)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 _uiState.value = UiState.Error(e.message ?: "An unexpected error occurred")
             }
         }
