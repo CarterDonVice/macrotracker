@@ -1,6 +1,7 @@
 package com.localmacrotracker.app.llm
 
 import com.localmacrotracker.app.llm.model.CandidateSelection
+import com.localmacrotracker.app.llm.model.ParsedFoodItem
 import com.localmacrotracker.app.llm.model.PlannerOutput
 import com.localmacrotracker.app.llm.model.RangeResult
 
@@ -27,23 +28,14 @@ interface LocalInferenceEngine {
     fun unloadModel()
 
     /**
-     * PROMPT 1 — Search Planner.
-     * Input: raw user description.
-     * Returns: [PlannerOutput] or null on invalid JSON / model failure.
+     * Food Parser — primary entry point for labeless food entry.
+     * Input: raw user description of what they ate.
+     * Returns: list of [ParsedFoodItem] (one per distinct food), or null on failure.
      */
+    suspend fun runFoodParser(userInput: String): List<ParsedFoodItem>?
+
+    // Legacy orchestrator methods kept for backward compatibility
     suspend fun runPlanner(userInput: String): PlannerOutput?
-
-    /**
-     * PROMPT 2 — Candidate Chooser.
-     * Input: item context + JSON array of candidates.
-     * Returns: [CandidateSelection] or null on failure.
-     */
     suspend fun runCandidateChooser(itemContext: String, candidatesJson: String): CandidateSelection?
-
-    /**
-     * PROMPT 3 — Range Estimator.
-     * Input: item context + reason why estimation is needed.
-     * Returns: [RangeResult] or null on failure.
-     */
     suspend fun runRangeEstimator(itemContext: String, reason: String): RangeResult?
 }

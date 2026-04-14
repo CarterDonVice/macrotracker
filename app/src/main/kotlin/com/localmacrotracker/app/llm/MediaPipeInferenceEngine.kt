@@ -6,6 +6,7 @@ import android.util.Log
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInference.LlmInferenceOptions
 import com.localmacrotracker.app.llm.model.CandidateSelection
+import com.localmacrotracker.app.llm.model.ParsedFoodItem
 import com.localmacrotracker.app.llm.model.PlannerOutput
 import com.localmacrotracker.app.llm.model.RangeResult
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -16,7 +17,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "MediaPipeEngine"
-private const val MAX_TOKENS = 256     // 270M model — short context budget, JSON outputs are small
+private const val MAX_TOKENS = 1024
 
 @Singleton
 class MediaPipeInferenceEngine @Inject constructor(
@@ -24,31 +25,28 @@ class MediaPipeInferenceEngine @Inject constructor(
 ) : LocalInferenceEngine {
 
     private var llmInference: LlmInference? = null
+    private var currentModelPath: String? = null
+
     override var status: ModelStatus = ModelStatus.NOT_CONFIGURED
         private set
 
     // Raw prompt templates — loaded once from assets
-    private val plannerPrompt: String by lazy { loadPromptAsset("prompts/search_planner_prompt.txt") }
+    private val parserPrompt: String by lazy { loadPromptAsset("prompts/search_planner_prompt.txt") }
     private val chooserPrompt: String by lazy { loadPromptAsset("prompts/candidate_chooser_prompt.txt") }
     private val estimatorPrompt: String by lazy { loadPromptAsset("prompts/range_estimator_prompt.txt") }
 
     override suspend fun loadModel(modelUri: Uri): Boolean = withContext(Dispatchers.IO) {
         status = ModelStatus.LOADING
         try {
-            // Resolve URI to a local file path that MediaPipe can use
             val modelPath = resolveUriToPath(modelUri)
                 ?: return@withContext false.also {
                     Log.e(TAG, "Could not resolve model URI to path: $modelUri")
                     status = ModelStatus.LOAD_FAILED
                 }
 
-            val options = LlmInferenceOptions.builder()
-                .setModelPath(modelPath)
-                .setMaxTokens(MAX_TOKENS)
-                .build()
-
+            currentModelPath = modelPath
             llmInference?.close()
-            llmInference = LlmInference.createFromOptions(context, options)
+            llmInference = buildInstance(modelPath)
             status = ModelStatus.READY
             Log.i(TAG, "Model loaded from $modelPath")
             true
@@ -62,11 +60,18 @@ class MediaPipeInferenceEngine @Inject constructor(
     override fun unloadModel() {
         llmInference?.close()
         llmInference = null
+        currentModelPath = null
         status = ModelStatus.NOT_CONFIGURED
     }
 
+    override suspend fun runFoodParser(userInput: String): List<ParsedFoodItem>? {
+        val prompt = parserPrompt.replace("{{USER_INPUT}}", userInput)
+        val raw = runInference(prompt) ?: return null
+        return LlmOutputParser.parseFoodItems(raw)
+    }
+
     override suspend fun runPlanner(userInput: String): PlannerOutput? {
-        val prompt = plannerPrompt.replace("{{USER_INPUT}}", userInput)
+        val prompt = parserPrompt.replace("{{USER_INPUT}}", userInput)
         val raw = runInference(prompt) ?: return null
         return LlmOutputParser.parsePlannerOutput(raw)
     }
@@ -91,37 +96,48 @@ class MediaPipeInferenceEngine @Inject constructor(
     }
 
     private suspend fun runInference(prompt: String): String? = withContext(Dispatchers.Default) {
-        val engine = llmInference ?: run {
-            Log.w(TAG, "Inference called but model not loaded")
+        val modelPath = currentModelPath ?: run {
+            Log.w(TAG, "Inference called but no model path stored")
             return@withContext null
         }
-        // Gemma IT models require the chat template applied manually —
-        // MediaPipe LlmInference does not inject it automatically.
+        // Create a fresh LlmInference instance for each query.
+        // This prevents context accumulation across calls which can overflow the
+        // token budget and crash the model on subsequent lookups.
+        val freshEngine = try {
+            llmInference?.close()
+            buildInstance(modelPath).also { llmInference = it }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create fresh inference instance", e)
+            status = ModelStatus.LOAD_FAILED
+            return@withContext null
+        }
+        // Gemma IT models require the chat template applied manually.
         val formatted = "<start_of_turn>user\n${prompt}<end_of_turn>\n<start_of_turn>model\n"
         return@withContext try {
-            engine.generateResponse(formatted)
+            freshEngine.generateResponse(formatted)
         } catch (e: Exception) {
             Log.e(TAG, "Inference error", e)
             null
         }
     }
 
+    private fun buildInstance(modelPath: String): LlmInference {
+        val options = LlmInferenceOptions.builder()
+            .setModelPath(modelPath)
+            .setMaxTokens(MAX_TOKENS)
+            .build()
+        return LlmInference.createFromOptions(context, options)
+    }
+
     private fun resolveUriToPath(uri: Uri): String? {
-        // If it's already a file:// URI
         if (uri.scheme == "file") return uri.path
 
-        // For content:// URIs, copy to a cache file for MediaPipe access
         return try {
             val cacheDir = File(context.cacheDir, "models").also { it.mkdirs() }
-            // lastPathSegment for a content:// URI from external storage looks like
-            // "primary:LLMs/Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task".
-            // Strip everything up to and including the last '/' or ':' to get a
-            // clean filename with no directory separators.
             val rawSegment = uri.lastPathSegment ?: "model.bin"
             val filename = rawSegment.substringAfterLast('/').substringAfterLast(':')
                 .ifBlank { "model.bin" }
             val dest = File(cacheDir, filename)
-            // Skip copy if file already cached (avoids re-copying large model files on reload)
             if (!dest.exists() || dest.length() == 0L) {
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     dest.outputStream().use { output -> input.copyTo(output) }
