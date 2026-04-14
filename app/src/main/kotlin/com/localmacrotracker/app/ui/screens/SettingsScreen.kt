@@ -25,6 +25,7 @@ import com.localmacrotracker.app.BuildConfig
 import com.localmacrotracker.app.llm.ModelStatus
 import com.localmacrotracker.app.ui.viewmodel.SettingsViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
