@@ -15,7 +15,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "MediaPipeEngine"
-private const val MAX_TOKENS = 1024
+private const val MAX_TOKENS = 512     // ekv2048 model = 2048 total context; keep output small
 private const val TEMPERATURE = 0.1f   // Near-deterministic for JSON output
 private const val TOP_K = 40
 
@@ -98,8 +98,11 @@ class MediaPipeInferenceEngine @Inject constructor(
             Log.w(TAG, "Inference called but model not loaded")
             return@withContext null
         }
+        // Gemma IT models require the chat template applied manually —
+        // MediaPipe LlmInference does not inject it automatically.
+        val formatted = "<start_of_turn>user\n${prompt}<end_of_turn>\n<start_of_turn>model\n"
         return@withContext try {
-            engine.generateResponse(prompt)
+            engine.generateResponse(formatted)
         } catch (e: Exception) {
             Log.e(TAG, "Inference error", e)
             null
