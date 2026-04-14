@@ -8,6 +8,7 @@ import com.google.mediapipe.tasks.genai.llminference.LlmInference.LlmInferenceOp
 import com.localmacrotracker.app.llm.model.CandidateSelection
 import com.localmacrotracker.app.llm.model.PlannerOutput
 import com.localmacrotracker.app.llm.model.RangeResult
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -19,7 +20,7 @@ private const val MAX_TOKENS = 512     // ekv2048 model = 2048 total context; ke
 
 @Singleton
 class MediaPipeInferenceEngine @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context
 ) : LocalInferenceEngine {
 
     private var llmInference: LlmInference? = null
