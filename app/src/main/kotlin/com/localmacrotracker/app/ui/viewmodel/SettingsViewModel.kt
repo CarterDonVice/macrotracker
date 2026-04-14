@@ -25,6 +25,15 @@ class SettingsViewModel @Inject constructor(
     val isOnboardingComplete: StateFlow<Boolean> = prefs.isOnboardingComplete
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val goalCalories: StateFlow<Int> = prefs.goalCalories
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    val goalProtein: StateFlow<Int> = prefs.goalProtein
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    val goalCarbs: StateFlow<Int> = prefs.goalCarbs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    val goalFat: StateFlow<Int> = prefs.goalFat
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
     val usdaKey: StateFlow<String> = prefs.usdaApiKey
         .map { it ?: "" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
@@ -44,6 +53,12 @@ class SettingsViewModel @Inject constructor(
     fun completeOnboarding() {
         viewModelScope.launch {
             prefs.setOnboardingComplete()
+        }
+    }
+
+    fun setGoals(calories: Int, protein: Int, carbs: Int, fat: Int) {
+        viewModelScope.launch {
+            prefs.setGoals(calories, protein, carbs, fat)
         }
     }
 

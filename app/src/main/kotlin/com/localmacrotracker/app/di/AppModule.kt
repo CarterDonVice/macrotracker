@@ -29,6 +29,7 @@ object DatabaseModule {
     @Provides fun provideFoodLogDao(db: AppDatabase): FoodLogDao = db.foodLogDao()
     @Provides fun provideRecipeDao(db: AppDatabase): RecipeDao = db.recipeDao()
     @Provides fun provideLookupCacheDao(db: AppDatabase): LookupCacheDao = db.lookupCacheDao()
+    @Provides fun provideWeightDao(db: AppDatabase): WeightDao = db.weightDao()
 }
 
 @Module

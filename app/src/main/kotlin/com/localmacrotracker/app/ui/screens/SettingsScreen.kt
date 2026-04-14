@@ -34,9 +34,17 @@ fun SettingsScreen(
     val usdaKey by viewModel.usdaKey.collectAsStateWithLifecycle()
     val modelStatus by viewModel.modelStatus.collectAsStateWithLifecycle()
     val modelDisplayName by viewModel.modelDisplayName.collectAsStateWithLifecycle()
+    val goalCalories by viewModel.goalCalories.collectAsStateWithLifecycle()
+    val goalProtein by viewModel.goalProtein.collectAsStateWithLifecycle()
+    val goalCarbs by viewModel.goalCarbs.collectAsStateWithLifecycle()
+    val goalFat by viewModel.goalFat.collectAsStateWithLifecycle()
 
     var keyInput by remember(usdaKey) { mutableStateOf(usdaKey) }
     var keyVisible by remember { mutableStateOf(false) }
+    var calInput by remember(goalCalories) { mutableStateOf(if (goalCalories > 0) goalCalories.toString() else "") }
+    var proInput by remember(goalProtein) { mutableStateOf(if (goalProtein > 0) goalProtein.toString() else "") }
+    var carbInput by remember(goalCarbs) { mutableStateOf(if (goalCarbs > 0) goalCarbs.toString() else "") }
+    var fatInput by remember(goalFat) { mutableStateOf(if (goalFat > 0) goalFat.toString() else "") }
 
     val modelPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -149,6 +157,32 @@ fun SettingsScreen(
                 )
             }
 
+            // ── Daily Goals ───────────────────────────────────────────────
+            SettingsSection("Daily Goals") {
+                Text(
+                    "Set targets to see progress bars on the home screen. Leave blank to hide.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(4.dp))
+                GoalField("Calories (kcal)", calInput) { calInput = it }
+                GoalField("Protein (g)", proInput) { proInput = it }
+                GoalField("Carbs (g)", carbInput) { carbInput = it }
+                GoalField("Fat (g)", fatInput) { fatInput = it }
+                Spacer(Modifier.height(4.dp))
+                Button(
+                    onClick = {
+                        viewModel.setGoals(
+                            calories = calInput.toIntOrNull() ?: 0,
+                            protein = proInput.toIntOrNull() ?: 0,
+                            carbs = carbInput.toIntOrNull() ?: 0,
+                            fat = fatInput.toIntOrNull() ?: 0
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Save Goals") }
+            }
+
             // ── About ─────────────────────────────────────────────────────
             SettingsSection("About") {
                 Text("Local Macro Tracker", style = MaterialTheme.typography.bodyMedium)
@@ -167,6 +201,18 @@ fun SettingsScreen(
             Spacer(Modifier.height(32.dp))
         }
     }
+}
+
+@Composable
+private fun GoalField(label: String, value: String, onValueChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 @Composable

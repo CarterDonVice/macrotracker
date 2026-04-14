@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -16,7 +18,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,6 +32,8 @@ import com.localmacrotracker.app.data.model.MealSection
 import com.localmacrotracker.app.domain.DailyTotalsCalculator
 import com.localmacrotracker.app.ui.theme.*
 import com.localmacrotracker.app.ui.viewmodel.DailyLogViewModel
+import com.localmacrotracker.app.ui.viewmodel.SettingsViewModel
+import com.localmacrotracker.app.ui.viewmodel.WeightViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -34,15 +41,64 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun DailyLogScreen(
     onAddEntry: (mealSection: String, logDate: String) -> Unit,
+    onSearchFoods: (mealSection: String, logDate: String) -> Unit,
+    onNavigateToWeightTracker: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onEntryTapped: (entryId: Long) -> Unit,
-    viewModel: DailyLogViewModel = hiltViewModel()
+    viewModel: DailyLogViewModel = hiltViewModel(),
+    settingsVm: SettingsViewModel = hiltViewModel(),
+    weightVm: WeightViewModel = hiltViewModel()
 ) {
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
     val entriesBySection by viewModel.entriesBySection.collectAsStateWithLifecycle()
     val dailyTotals by viewModel.dailyTotals.collectAsStateWithLifecycle()
+    val goalCalories by settingsVm.goalCalories.collectAsStateWithLifecycle()
+    val goalProtein by settingsVm.goalProtein.collectAsStateWithLifecycle()
+    val goalCarbs by settingsVm.goalCarbs.collectAsStateWithLifecycle()
+    val goalFat by settingsVm.goalFat.collectAsStateWithLifecycle()
+    val todayWeight by weightVm.todayEntry.collectAsStateWithLifecycle()
 
     val displayFormatter = DateTimeFormatter.ofPattern("EEE, MMM d")
+    var showMealPicker by remember { mutableStateOf(false) }
+
+    if (showMealPicker) {
+        ModalBottomSheet(
+            onDismissRequest = { showMealPicker = false },
+            containerColor = DarkSurface,
+            contentColor = TextPrimary
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, end = 20.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    "Add saved food to…",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                MealSection.values().forEach { section ->
+                    TextButton(
+                        onClick = {
+                            showMealPicker = false
+                            onSearchFoods(section.name, selectedDate.toString())
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            section.displayName,
+                            modifier = Modifier.fillMaxWidth(),
+                            color = TextPrimary,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -75,8 +131,11 @@ fun DailyLogScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showMealPicker = true }) {
+                        Icon(Icons.Filled.Search, contentDescription = "Search saved foods", tint = TextSecondary)
+                    }
                     IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                        Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = TextSecondary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -93,13 +152,33 @@ fun DailyLogScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Sticky daily totals bar at top
+            // Sticky daily totals bar
             DailyTotalsBar(totals = dailyTotals)
+
+            // Goal progress bars — shown only when at least one goal is set
+            if (goalCalories > 0 || goalProtein > 0 || goalCarbs > 0 || goalFat > 0) {
+                GoalProgressSection(
+                    dailyTotals = dailyTotals,
+                    goalCalories = goalCalories,
+                    goalProtein = goalProtein,
+                    goalCarbs = goalCarbs,
+                    goalFat = goalFat
+                )
+            }
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
+                // Weight quick-entry widget
+                item(key = "weight_widget") {
+                    WeightQuickEntry(
+                        todayWeight = todayWeight?.weightLbs,
+                        onLog = { lbs -> weightVm.logWeight(lbs) },
+                        onNavigateToTracker = onNavigateToWeightTracker
+                    )
+                }
+
                 MealSection.values().forEach { section ->
                     val entries = entriesBySection[section] ?: emptyList()
                     val sectionTotals = DailyTotalsCalculator.calculate(entries)
@@ -139,6 +218,166 @@ fun DailyLogScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GoalProgressSection(
+    dailyTotals: DailyTotalsCalculator.DailyTotals,
+    goalCalories: Int,
+    goalProtein: Int,
+    goalCarbs: Int,
+    goalFat: Int
+) {
+    val (cal, pro, carb, fat) = when (dailyTotals) {
+        is DailyTotalsCalculator.DailyTotals.Exact -> {
+            val t = dailyTotals.totals
+            listOf(t.calories, t.proteinGrams, t.carbsGrams, t.fatGrams)
+        }
+        is DailyTotalsCalculator.DailyTotals.Range -> {
+            val t = dailyTotals.totals
+            // Use midpoint of range for progress
+            listOf(
+                (t.caloriesMin + t.caloriesMax) / 2,
+                (t.proteinMin + t.proteinMax) / 2,
+                (t.carbsMin + t.carbsMax) / 2,
+                (t.fatMin + t.fatMax) / 2
+            )
+        }
+        is DailyTotalsCalculator.DailyTotals.Empty -> listOf(0.0, 0.0, 0.0, 0.0)
+    }
+    Surface(color = DarkSurface) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            if (goalCalories > 0) GoalBar("Cal", cal.toInt(), goalCalories, TextPrimary)
+            if (goalProtein > 0) GoalBar("Pro", pro.toInt(), goalProtein, MacroProtein)
+            if (goalCarbs > 0) GoalBar("Carb", carb.toInt(), goalCarbs, MacroCarbs)
+            if (goalFat > 0) GoalBar("Fat", fat.toInt(), goalFat, MacroFat)
+        }
+    }
+    HorizontalDivider(color = Divider)
+}
+
+@Composable
+private fun GoalBar(label: String, current: Int, goal: Int, color: Color) {
+    val progress = (current.toFloat() / goal).coerceIn(0f, 1f)
+    val overGoal = current > goal
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = TextSecondary,
+            modifier = Modifier.width(30.dp)
+        )
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier
+                .weight(1f)
+                .height(5.dp),
+            color = if (overGoal) ErrorRed else color,
+            trackColor = DarkSurfaceVariant
+        )
+        Text(
+            "$current/$goal",
+            style = MaterialTheme.typography.labelSmall,
+            color = if (overGoal) ErrorRed else TextSecondary,
+            modifier = Modifier.width(70.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.End
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WeightQuickEntry(
+    todayWeight: Double?,
+    onLog: (Double) -> Unit,
+    onNavigateToTracker: () -> Unit
+) {
+    val keyboard = LocalSoftwareKeyboardController.current
+    var input by remember { mutableStateOf("") }
+
+    LaunchedEffect(todayWeight) {
+        if (todayWeight != null && input.isBlank()) {
+            input = if (todayWeight == todayWeight.toLong().toDouble())
+                todayWeight.toLong().toString() else todayWeight.toString()
+        }
+    }
+
+    Surface(
+        color = DarkSurface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(10.dp),
+        onClick = onNavigateToTracker
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                Icons.Filled.FitnessCenter,
+                contentDescription = null,
+                tint = AccentGreen,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = if (todayWeight != null) "$todayWeight lbs" else "Log weight",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (todayWeight != null) TextPrimary else TextSecondary,
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedTextField(
+                value = input,
+                onValueChange = { input = it },
+                placeholder = { Text("lbs", style = MaterialTheme.typography.bodySmall) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = {
+                    keyboard?.hide()
+                    input.toDoubleOrNull()?.let { onLog(it) }
+                }),
+                modifier = Modifier.width(88.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AccentGreen,
+                    unfocusedBorderColor = Divider,
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary,
+                    cursorColor = AccentGreen,
+                    focusedContainerColor = DarkSurface,
+                    unfocusedContainerColor = DarkSurface
+                )
+            )
+            TextButton(
+                onClick = {
+                    keyboard?.hide()
+                    input.toDoubleOrNull()?.let { onLog(it) }
+                },
+                contentPadding = PaddingValues(horizontal = 8.dp)
+            ) {
+                Text(
+                    if (todayWeight != null) "Update" else "Log",
+                    color = AccentGreen,
+                    style = MaterialTheme.typography.labelMedium
+                )
             }
         }
     }

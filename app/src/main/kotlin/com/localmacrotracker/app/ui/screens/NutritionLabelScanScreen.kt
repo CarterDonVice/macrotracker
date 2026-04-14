@@ -9,7 +9,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,6 +28,7 @@ import androidx.compose.ui.geometry.Size as ComposeSize
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -50,6 +51,7 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.localmacrotracker.app.ui.theme.*
 import com.localmacrotracker.app.ui.viewmodel.NutritionLabelViewModel
 import java.util.concurrent.ExecutorService
+import kotlin.math.abs
 import java.util.concurrent.Executors
 
 private enum class LabelScanStep {
@@ -295,6 +297,8 @@ private fun CameraPreviewWithCapture(onPhotoCaptured: (Bitmap) -> Unit) {
     }
 }
 
+private enum class DragHandle { NONE, INSIDE, TL, TR, BL, BR }
+
 @Composable
 private fun CropScreen(
     bitmap: Bitmap,
@@ -303,7 +307,8 @@ private fun CropScreen(
     onAnalyze: () -> Unit
 ) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
-    var localCrop by remember(cropRect) { mutableStateOf(cropRect) }
+    // Initialize once from parent; we keep localCrop in sync via onCropRectChanged
+    var localCrop by remember { mutableStateOf(cropRect) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         androidx.compose.foundation.Image(
@@ -319,18 +324,117 @@ private fun CropScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(containerSize) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        if (containerSize.width == 0 || containerSize.height == 0) return@detectDragGestures
-                        val dx = dragAmount.x / containerSize.width
-                        val dy = dragAmount.y / containerSize.height
-                        localCrop = Rect(
-                            left = (localCrop.left + dx).coerceIn(0f, localCrop.right - 0.1f),
-                            top = (localCrop.top + dy).coerceIn(0f, localCrop.bottom - 0.1f),
-                            right = (localCrop.right + dx).coerceIn(localCrop.left + 0.1f, 1f),
-                            bottom = (localCrop.bottom + dy).coerceIn(localCrop.top + 0.1f, 1f)
-                        )
-                        onCropRectChanged(localCrop)
+                    val handleTouchPx = 44.dp.toPx()
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        if (containerSize.width == 0 || containerSize.height == 0) return@awaitEachGesture
+
+                        val w = containerSize.width.toFloat()
+                        val h = containerSize.height.toFloat()
+                        val px = down.position.x / w
+                        val py = down.position.y / h
+                        val hx = handleTouchPx / w
+                        val hy = handleTouchPx / h
+
+                        // Determine which zone was touched
+                        val handle = when {
+                            abs(px - localCrop.left) < hx && abs(py - localCrop.top) < hy -> DragHandle.TL
+                            abs(px - localCrop.right) < hx && abs(py - localCrop.top) < hy -> DragHandle.TR
+                            abs(px - localCrop.left) < hx && abs(py - localCrop.bottom) < hy -> DragHandle.BL
+                            abs(px - localCrop.right) < hx && abs(py - localCrop.bottom) < hy -> DragHandle.BR
+                            px > localCrop.left && px < localCrop.right && py > localCrop.top && py < localCrop.bottom -> DragHandle.INSIDE
+                            else -> DragHandle.NONE
+                        }
+
+                        var prevPos = down.position
+                        var prevCentroid = down.position
+                        var prevDist = 0f
+                        var pinchStarted = false
+
+                        var cont = true
+                        while (cont) {
+                            val event = awaitPointerEvent(PointerEventPass.Main)
+                            val active = event.changes.filter { it.pressed }
+                            cont = active.isNotEmpty()
+
+                            if (active.size >= 2) {
+                                // Two-finger: pinch to resize + translate by centroid movement
+                                pinchStarted = true
+                                val p1 = active[0].position
+                                val p2 = active[1].position
+                                val centroid = Offset((p1.x + p2.x) / 2f, (p1.y + p2.y) / 2f)
+                                val dist = (p1 - p2).getDistance()
+
+                                if (prevDist > 0f) {
+                                    val scale = dist / prevDist
+                                    val cx = centroid.x / w
+                                    val cy = centroid.y / h
+                                    val dcx = (centroid.x - prevCentroid.x) / w
+                                    val dcy = (centroid.y - prevCentroid.y) / h
+
+                                    // Translate the box, then scale it around the centroid
+                                    val tl = localCrop.left + dcx
+                                    val tr = localCrop.right + dcx
+                                    val tt = localCrop.top + dcy
+                                    val tb = localCrop.bottom + dcy
+
+                                    val newLeft = (cx + (tl - cx) * scale).coerceIn(0f, 0.95f)
+                                    val newRight = (cx + (tr - cx) * scale).coerceIn(0.05f, 1f)
+                                    val newTop = (cy + (tt - cy) * scale).coerceIn(0f, 0.95f)
+                                    val newBottom = (cy + (tb - cy) * scale).coerceIn(0.05f, 1f)
+
+                                    if (newRight - newLeft > 0.05f && newBottom - newTop > 0.05f) {
+                                        localCrop = Rect(
+                                            left = minOf(newLeft, newRight - 0.05f),
+                                            top = minOf(newTop, newBottom - 0.05f),
+                                            right = maxOf(newRight, newLeft + 0.05f),
+                                            bottom = maxOf(newBottom, newTop + 0.05f)
+                                        )
+                                        onCropRectChanged(localCrop)
+                                    }
+                                }
+                                prevDist = dist
+                                prevCentroid = centroid
+                                active.forEach { it.consume() }
+
+                            } else if (active.size == 1 && !pinchStarted) {
+                                // Single finger: move or resize depending on hit zone
+                                val curr = active[0].position
+                                val dx = (curr.x - prevPos.x) / w
+                                val dy = (curr.y - prevPos.y) / h
+                                val MIN = 0.08f
+
+                                localCrop = when (handle) {
+                                    DragHandle.INSIDE -> {
+                                        val bw = localCrop.right - localCrop.left
+                                        val bh = localCrop.bottom - localCrop.top
+                                        val nl = (localCrop.left + dx).coerceIn(0f, 1f - bw)
+                                        val nt = (localCrop.top + dy).coerceIn(0f, 1f - bh)
+                                        Rect(nl, nt, nl + bw, nt + bh)
+                                    }
+                                    DragHandle.TL -> localCrop.copy(
+                                        left = (localCrop.left + dx).coerceIn(0f, localCrop.right - MIN),
+                                        top = (localCrop.top + dy).coerceIn(0f, localCrop.bottom - MIN)
+                                    )
+                                    DragHandle.TR -> localCrop.copy(
+                                        right = (localCrop.right + dx).coerceIn(localCrop.left + MIN, 1f),
+                                        top = (localCrop.top + dy).coerceIn(0f, localCrop.bottom - MIN)
+                                    )
+                                    DragHandle.BL -> localCrop.copy(
+                                        left = (localCrop.left + dx).coerceIn(0f, localCrop.right - MIN),
+                                        bottom = (localCrop.bottom + dy).coerceIn(localCrop.top + MIN, 1f)
+                                    )
+                                    DragHandle.BR -> localCrop.copy(
+                                        right = (localCrop.right + dx).coerceIn(localCrop.left + MIN, 1f),
+                                        bottom = (localCrop.bottom + dy).coerceIn(localCrop.top + MIN, 1f)
+                                    )
+                                    DragHandle.NONE -> localCrop
+                                }
+                                onCropRectChanged(localCrop)
+                                prevPos = curr
+                                active.forEach { it.consume() }
+                            }
+                        }
                     }
                 }
         ) {
@@ -370,7 +474,7 @@ private fun CropScreen(
         }
 
         Text(
-            text = "Drag to reposition crop · handles at corners to resize",
+            text = "Drag inside to move · drag corners to resize · pinch to scale",
             color = Color.White,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier

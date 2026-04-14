@@ -6,6 +6,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -28,6 +29,10 @@ class AppPreferences @Inject constructor(
         private val KEY_MODEL_DISPLAY_NAME = stringPreferencesKey("model_display_name")
         private val KEY_ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
         private val KEY_OFF_USER_AGENT = stringPreferencesKey("off_user_agent")
+        private val KEY_GOAL_CALORIES = intPreferencesKey("goal_calories")
+        private val KEY_GOAL_PROTEIN = intPreferencesKey("goal_protein")
+        private val KEY_GOAL_CARBS = intPreferencesKey("goal_carbs")
+        private val KEY_GOAL_FAT = intPreferencesKey("goal_fat")
     }
 
     val usdaApiKey: Flow<String?> = store.data.map { it[KEY_USDA_API_KEY] }
@@ -47,4 +52,16 @@ class AppPreferences @Inject constructor(
     }
     suspend fun setOnboardingComplete() = store.edit { it[KEY_ONBOARDING_COMPLETE] = true }
     suspend fun setOffUserAgent(value: String) = store.edit { it[KEY_OFF_USER_AGENT] = value }
+
+    val goalCalories: Flow<Int> = store.data.map { it[KEY_GOAL_CALORIES] ?: 0 }
+    val goalProtein: Flow<Int> = store.data.map { it[KEY_GOAL_PROTEIN] ?: 0 }
+    val goalCarbs: Flow<Int> = store.data.map { it[KEY_GOAL_CARBS] ?: 0 }
+    val goalFat: Flow<Int> = store.data.map { it[KEY_GOAL_FAT] ?: 0 }
+
+    suspend fun setGoals(calories: Int, protein: Int, carbs: Int, fat: Int) = store.edit {
+        it[KEY_GOAL_CALORIES] = calories
+        it[KEY_GOAL_PROTEIN] = protein
+        it[KEY_GOAL_CARBS] = carbs
+        it[KEY_GOAL_FAT] = fat
+    }
 }

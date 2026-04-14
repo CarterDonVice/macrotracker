@@ -43,6 +43,7 @@ sealed class Screen(val route: String) {
         fun routeFor(foodId: Long) = "saved_food_detail/$foodId"
     }
     object Settings : Screen("settings")
+    object WeightTracker : Screen("weight_tracker")
 }
 
 @Composable
@@ -67,6 +68,12 @@ fun AppNavigation() {
             DailyLogScreen(
                 onAddEntry = { mealSection, logDate ->
                     navController.navigate(Screen.AddEntryChooser.routeFor(mealSection, logDate))
+                },
+                onSearchFoods = { mealSection, logDate ->
+                    navController.navigate(Screen.SavedFoodsSearch.routeFor(mealSection, logDate))
+                },
+                onNavigateToWeightTracker = {
+                    navController.navigate(Screen.WeightTracker.route)
                 },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
@@ -228,6 +235,10 @@ fun AppNavigation() {
 
         composable(Screen.Settings.route) {
             SettingsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.WeightTracker.route) {
+            WeightTrackerScreen(onBack = { navController.popBackStack() })
         }
     }
 }
