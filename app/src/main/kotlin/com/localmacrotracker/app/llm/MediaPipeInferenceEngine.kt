@@ -16,7 +16,6 @@ import javax.inject.Singleton
 
 private const val TAG = "MediaPipeEngine"
 private const val MAX_TOKENS = 512     // ekv2048 model = 2048 total context; keep output small
-private const val TEMPERATURE = 0.1f   // Near-deterministic for JSON output
 private const val TOP_K = 40
 
 @Singleton
@@ -46,7 +45,6 @@ class MediaPipeInferenceEngine @Inject constructor(
             val options = LlmInferenceOptions.builder()
                 .setModelPath(modelPath)
                 .setMaxTokens(MAX_TOKENS)
-                .setTemperature(TEMPERATURE)
                 .setTopK(TOP_K)
                 .build()
 
