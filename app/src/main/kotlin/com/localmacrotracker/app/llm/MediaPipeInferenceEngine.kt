@@ -113,7 +113,13 @@ class MediaPipeInferenceEngine @Inject constructor(
         // For content:// URIs, copy to a cache file for MediaPipe access
         return try {
             val cacheDir = File(context.cacheDir, "models").also { it.mkdirs() }
-            val filename = uri.lastPathSegment ?: "model.bin"
+            // lastPathSegment for a content:// URI from external storage looks like
+            // "primary:LLMs/Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task".
+            // Strip everything up to and including the last '/' or ':' to get a
+            // clean filename with no directory separators.
+            val rawSegment = uri.lastPathSegment ?: "model.bin"
+            val filename = rawSegment.substringAfterLast('/').substringAfterLast(':')
+                .ifBlank { "model.bin" }
             val dest = File(cacheDir, filename)
             // Skip copy if file already cached (avoids re-copying large model files on reload)
             if (!dest.exists() || dest.length() == 0L) {
