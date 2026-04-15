@@ -2,7 +2,11 @@ package com.localmacrotracker.app.ui.screens
 
 import android.Manifest
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
+import android.graphics.Paint
 import android.util.Size
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -74,7 +78,8 @@ fun NutritionLabelScanScreen(
     val cameraPermission = rememberPermissionState(Manifest.permission.CAMERA)
     var step by remember { mutableStateOf(LabelScanStep.PREVIEW) }
     var capturedBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var cropRect by remember { mutableStateOf(Rect(0.1f, 0.1f, 0.9f, 0.9f)) }
+    // Wider default crop — captures more of the label on first try
+    var cropRect by remember { mutableStateOf(Rect(0.03f, 0.05f, 0.97f, 0.95f)) }
 
     LaunchedEffect(Unit) {
         if (!cameraPermission.status.isGranted) {
@@ -639,9 +644,46 @@ private fun runOcrOnCrop(
     val safeW = minOf(w, bitmap.width - x)
     val safeH = minOf(h, bitmap.height - y)
     val cropped = Bitmap.createBitmap(bitmap, x, y, safeW, safeH)
-    val image = InputImage.fromBitmap(cropped, 0)
+
+    // Preprocess: upscale small crops, then apply high-contrast grayscale filter.
+    // ML Kit performs significantly better on high-contrast text.
+    val processed = preprocessForOcr(cropped)
+
+    val image = InputImage.fromBitmap(processed, 0)
     val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     recognizer.process(image)
         .addOnSuccessListener { result -> onResult(result.text) }
         .addOnFailureListener { onError() }
+}
+
+/** Scale up small images and apply a high-contrast grayscale filter for better OCR. */
+private fun preprocessForOcr(src: Bitmap): Bitmap {
+    // Upscale: ML Kit works best at ≥1000px wide
+    val targetWidth = maxOf(src.width, 1200)
+    val scale = targetWidth.toFloat() / src.width
+    val scaled = if (scale > 1.1f) {
+        Bitmap.createScaledBitmap(src, targetWidth, (src.height * scale).toInt(), true)
+    } else src
+
+    // High-contrast grayscale: desaturate then boost contrast
+    val result = Bitmap.createBitmap(scaled.width, scaled.height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(result)
+    val paint = Paint().apply {
+        colorFilter = ColorMatrixColorFilter(ColorMatrix().apply {
+            // Desaturate to grayscale
+            setSaturation(0f)
+            // Boost contrast: scale RGB channels and shift brightness
+            val contrast = 1.6f
+            val brightness = -60f
+            val cm = ColorMatrix(floatArrayOf(
+                contrast, 0f, 0f, 0f, brightness,
+                0f, contrast, 0f, 0f, brightness,
+                0f, 0f, contrast, 0f, brightness,
+                0f, 0f, 0f, 1f, 0f
+            ))
+            postConcat(cm)
+        })
+    }
+    canvas.drawBitmap(scaled, 0f, 0f, paint)
+    return result
 }

@@ -11,88 +11,196 @@ private const val TAG = "OcrLabelParser"
 @Singleton
 class OcrLabelParserImpl @Inject constructor() : OcrLabelParser {
 
+    private data class MacroResult(
+        var calories: Double? = null,
+        var protein: Double? = null,
+        var carbs: Double? = null,
+        var fat: Double? = null
+    ) {
+        fun isComplete() = calories != null && protein != null && carbs != null && fat != null
+    }
+
     override fun parse(ocrText: String): ParsedNutritionDraft {
         val lines = ocrText.lines().map { it.trim() }.filter { it.isNotBlank() }
-        var calories: Double? = null
-        var protein: Double? = null
-        var carbs: Double? = null
-        var fat: Double? = null
+        val result = MacroResult()
         var servingText: String? = null
         var servingWeightGrams: Double? = null
         val nutrients = mutableMapOf<String, Double>()
 
+        // ── First pass: structured line-by-line matching ───────────────────
         for (i in lines.indices) {
-            val line = lines[i].lowercase()
+            val raw = lines[i]
+            val line = raw.lowercase()
+            val nextRaw = lines.getOrNull(i + 1)
 
             // Serving size
             if (line.contains("serving size") || line.contains("serving:")) {
-                servingText = lines[i]
-                val weightMatch = Regex("""(\d+(?:\.\d+)?)\s*g""", RegexOption.IGNORE_CASE)
-                    .find(lines[i])
-                servingWeightGrams = weightMatch?.groupValues?.get(1)?.toDoubleOrNull()
+                servingText = raw
+                Regex("""(\d+(?:\.\d+)?)\s*g""", RegexOption.IGNORE_CASE)
+                    .find(raw)?.groupValues?.get(1)?.toDoubleOrNull()
+                    ?.let { servingWeightGrams = it }
             }
 
-            // Calories — "Calories 250" or "250" on line after "Calories"
-            if (line.startsWith("calories") && !line.contains("fat") && !line.contains("from")) {
-                calories = extractTrailingNumber(lines[i])
-                    ?: lines.getOrNull(i + 1)?.toDoubleOrNull()
+            // Calories — "Calories 250", "Calories: 250", "250 Calories", "Cal 250"
+            if (result.calories == null && isCalorieLine(line)) {
+                result.calories = extractNumber(raw)
+                    ?: nextRaw?.let { extractStandaloneNumber(it) }
             }
 
-            // Total Fat
-            if ((line.startsWith("total fat") || line == "fat") && fat == null) {
-                fat = extractTrailingNumber(lines[i])
+            // Total Fat — "Total Fat 12g", "Fat 12g", "12g Fat"
+            if (result.fat == null && isTotalFatLine(line)) {
+                result.fat = extractNumber(raw)
+                    ?: nextRaw?.let { extractStandaloneNumber(it) }
             }
 
-            // Total Carbohydrate
-            if ((line.startsWith("total carb") || line.startsWith("carbohydrate")) && carbs == null) {
-                carbs = extractTrailingNumber(lines[i])
+            // Total Carbohydrate — "Total Carbohydrate", "Carbs", "Total Carbs"
+            if (result.carbs == null && isTotalCarbsLine(line)) {
+                result.carbs = extractNumber(raw)
+                    ?: nextRaw?.let { extractStandaloneNumber(it) }
             }
 
             // Protein
-            if (line.startsWith("protein") && protein == null) {
-                protein = extractTrailingNumber(lines[i])
+            if (result.protein == null && isProteinLine(line)) {
+                result.protein = extractNumber(raw)
+                    ?: nextRaw?.let { extractStandaloneNumber(it) }
             }
 
             // Dietary Fiber
             if (line.startsWith("dietary fiber") || line.startsWith("fiber")) {
-                extractTrailingNumber(lines[i])?.let { nutrients["FIBTG"] = it }
+                extractNumber(raw)?.let { nutrients["FIBTG"] = it }
             }
 
             // Sugars
-            if (line.startsWith("total sugars") || line.startsWith("sugars")) {
-                extractTrailingNumber(lines[i])?.let { nutrients["SUGAR"] = it }
+            if (line.startsWith("total sugars") || line.startsWith("sugars") || line == "sugar") {
+                extractNumber(raw)?.let { nutrients["SUGAR"] = it }
             }
 
             // Sodium
             if (line.startsWith("sodium")) {
-                extractTrailingNumber(lines[i])?.let { nutrients["NA"] = it }
+                extractNumber(raw)?.let { nutrients["NA"] = it }
             }
 
             // Cholesterol
             if (line.startsWith("cholesterol")) {
-                extractTrailingNumber(lines[i])?.let { nutrients["CHOLE"] = it }
+                extractNumber(raw)?.let { nutrients["CHOLE"] = it }
             }
         }
 
-        Log.d(TAG, "OCR parsed: cal=$calories, pro=$protein, carb=$carbs, fat=$fat")
+        // ── Second pass: broader substring scan for still-missing macros ──
+        if (!result.isComplete()) {
+            for (raw in lines) {
+                val line = raw.lowercase()
+                if (result.calories == null &&
+                    (line.contains("calorie") || line.contains(" cal ") || line.endsWith(" cal")) &&
+                    !line.contains("from fat")
+                ) {
+                    result.calories = extractNumber(raw)
+                }
+                if (result.fat == null && line.contains("total fat") &&
+                    !line.contains("saturated") && !line.contains("trans")
+                ) {
+                    result.fat = extractNumber(raw)
+                }
+                if (result.carbs == null &&
+                    (line.contains("total carb") || line.contains("carbohydrate"))
+                ) {
+                    result.carbs = extractNumber(raw)
+                }
+                if (result.protein == null && line.contains("protein")) {
+                    result.protein = extractNumber(raw)
+                }
+            }
+        }
+
+        Log.d(TAG, "OCR parsed: cal=${result.calories}, pro=${result.protein}, carb=${result.carbs}, fat=${result.fat}")
 
         return ParsedNutritionDraft(
             suggestedName = null,
             servingText = servingText,
             servingWeightGrams = servingWeightGrams,
-            calories = calories,
-            proteinGrams = protein,
-            carbsGrams = carbs,
-            fatGrams = fat,
+            calories = result.calories,
+            proteinGrams = result.protein,
+            carbsGrams = result.carbs,
+            fatGrams = result.fat,
             nutrients = nutrients,
             rawOcrText = ocrText
         )
     }
 
-    private fun extractTrailingNumber(line: String): Double? {
-        // "Total Fat 12g" → 12.0 | "Sodium 480mg" → 480.0 | "Calories  250" → 250.0
-        val match = Regex("""(\d+(?:\.\d+)?)\s*(?:mcg|mg|g|kcal)?$""", RegexOption.IGNORE_CASE)
-            .find(line.trim())
-        return match?.groupValues?.get(1)?.toDoubleOrNull()
+    // ── Line classifiers ───────────────────────────────────────────────────
+
+    /** Matches calorie lines; excludes "Calories from Fat" */
+    private fun isCalorieLine(line: String): Boolean {
+        if (line.contains("from fat")) return false
+        return line.startsWith("calories") || line.startsWith("cal ") ||
+            line.endsWith("calories") || line.endsWith("calorie") || line.endsWith(" cal")
     }
+
+    /**
+     * Matches total-fat lines.
+     * Excludes: "Saturated Fat", "Trans Fat", "Calories from Fat", "Polyunsaturated Fat", etc.
+     */
+    private fun isTotalFatLine(line: String): Boolean {
+        if (line.contains("saturated") || line.contains("trans") ||
+            line.contains("from") || line.contains("poly") || line.contains("mono")
+        ) return false
+        return line.startsWith("total fat") || line.startsWith("fat total") ||
+            line == "fat" || (line.startsWith("fat") && line.length < 12)
+    }
+
+    /** Matches total carb lines. */
+    private fun isTotalCarbsLine(line: String) =
+        line.startsWith("total carb") || line.startsWith("carbohydrate") ||
+            line.startsWith("carbs") || line == "carb"
+
+    /** Matches protein lines. */
+    private fun isProteinLine(line: String) =
+        line.startsWith("protein")
+
+    // ── Number extractors ─────────────────────────────────────────────────
+
+    /**
+     * Extracts a numeric value from a mixed label+number line.
+     *
+     * Handles all standard label formats:
+     *   "Calories 250"     → 250
+     *   "Calories: 250"    → 250
+     *   "250 Calories"     → 250  (number-first)
+     *   "Total Fat 12g"    → 12
+     *   "12g Total Fat"    → 12   (number-first with unit)
+     *   "Sodium 480mg"     → 480
+     *   "Protein 25g"      → 25
+     */
+    private fun extractNumber(line: String): Double? {
+        val s = line.trim()
+
+        // Strategy 1: number at end with optional unit
+        //   "Total Fat 12g", "Calories 250", "Protein: 25g"
+        val trailingRe = Regex(
+            """(\d+(?:\.\d+)?)\s*(?:g|mg|mcg|kcal|cal)?\s*$""",
+            RegexOption.IGNORE_CASE
+        )
+        trailingRe.find(s)?.groupValues?.get(1)?.toDoubleOrNull()?.let { return it }
+
+        // Strategy 2: number at start followed by label text
+        //   "250 Calories", "12g Total Fat"
+        val leadingRe = Regex(
+            """^(\d+(?:\.\d+)?)\s*(?:g|mg|mcg|kcal|cal)?\s+\S""",
+            RegexOption.IGNORE_CASE
+        )
+        leadingRe.find(s)?.groupValues?.get(1)?.toDoubleOrNull()?.let { return it }
+
+        return null
+    }
+
+    /**
+     * Extracts a number from a line that contains ONLY a number (with optional unit).
+     * Used when the label and value are on separate lines.
+     *   "250", "12g", "25 g", "480mg" → respective doubles
+     */
+    private fun extractStandaloneNumber(line: String): Double? =
+        Regex(
+            """^\s*(\d+(?:\.\d+)?)\s*(?:g|mg|mcg|kcal|cal)?\s*$""",
+            RegexOption.IGNORE_CASE
+        ).find(line)?.groupValues?.get(1)?.toDoubleOrNull()
 }

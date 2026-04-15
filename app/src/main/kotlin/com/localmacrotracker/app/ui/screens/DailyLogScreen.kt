@@ -42,6 +42,7 @@ import java.time.format.DateTimeFormatter
 fun DailyLogScreen(
     onAddEntry: (mealSection: String, logDate: String) -> Unit,
     onSearchFoods: (mealSection: String, logDate: String) -> Unit,
+    onBrowseFoods: (logDate: String) -> Unit,
     onNavigateToWeightTracker: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onEntryTapped: (entryId: Long) -> Unit,
@@ -131,6 +132,11 @@ fun DailyLogScreen(
                     }
                 },
                 actions = {
+                    // Direct food database browse (no meal picker)
+                    IconButton(onClick = { onBrowseFoods(selectedDate.toString()) }) {
+                        Icon(Icons.Filled.FoodBank, contentDescription = "Browse food database", tint = AccentGreen)
+                    }
+                    // Search saved foods (with meal picker)
                     IconButton(onClick = { showMealPicker = true }) {
                         Icon(Icons.Filled.Search, contentDescription = "Search saved foods", tint = TextSecondary)
                     }

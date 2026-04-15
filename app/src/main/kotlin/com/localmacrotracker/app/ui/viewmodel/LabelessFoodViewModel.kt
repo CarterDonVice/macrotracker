@@ -77,16 +77,25 @@ class LabelessFoodViewModel @Inject constructor(
             try {
                 // Phase 1: LLM parsing
                 _uiState.value = UiState.Working("Parsing your food description…")
-                val parsedItems: List<ParsedFoodItem> = if (inferenceEngine.status == ModelStatus.READY) {
-                    inferenceEngine.runFoodParser(input) ?: emptyList()
-                } else {
-                    // No model: treat the whole input as a single unnamed item
-                    listOf(ParsedFoodItem(foodName = input.trim(), quantity = 1.0, unit = "serving"))
-                }
+                val llmResult: List<ParsedFoodItem>? = if (inferenceEngine.status == ModelStatus.READY) {
+                    Log.d(TAG, "Running food parser on: $input")
+                    inferenceEngine.runFoodParser(input).also { r ->
+                        Log.d(TAG, "Food parser result: ${r?.size} items — $r")
+                    }
+                } else null
 
-                if (parsedItems.isEmpty()) {
-                    _uiState.value = UiState.Error("No foods found. Please be more specific.")
-                    return@launch
+                // null = parse/inference failure → fall back to single-item direct lookup
+                // empty list = model explicitly found nothing → show error
+                val parsedItems: List<ParsedFoodItem> = when {
+                    llmResult == null -> {
+                        Log.w(TAG, "LLM parse failed; falling back to direct lookup for: $input")
+                        listOf(ParsedFoodItem(foodName = input.trim(), quantity = 1.0, unit = "serving"))
+                    }
+                    llmResult.isEmpty() -> {
+                        _uiState.value = UiState.Error("No foods found. Please be more specific.")
+                        return@launch
+                    }
+                    else -> llmResult
                 }
 
                 // Phase 2: Parallel API lookups for every parsed item
@@ -208,23 +217,31 @@ class LabelessFoodViewModel @Inject constructor(
             .joinToString(" ")
 
     private suspend fun trySearchOff(query: String): FoodCandidate? = try {
+        Log.d(TAG, "OFF search → '$query'")
         val response = offApi.searchProducts(query = query, pageSize = 3)
-        response.products.firstOrNull { p ->
+        Log.d(TAG, "OFF returned ${response.products.size} products")
+        val match = response.products.firstOrNull { p ->
             p.productName != null &&
                 (p.nutriments?.caloriesPerServing != null || p.nutriments?.caloriesPer100g != null)
         }?.let { mapOffCandidate(it) }
+        Log.d(TAG, "OFF candidate: ${match?.displayName ?: "none"}")
+        match
     } catch (e: Exception) {
         Log.w(TAG, "OFF search failed for '$query'", e)
         null
     }
 
     private suspend fun trySearchUsda(query: String, apiKey: String): FoodCandidate? = try {
+        Log.d(TAG, "USDA search → '$query'")
         val response = usdaApi.searchFoods(query = query, apiKey = apiKey, pageSize = 3)
-        response.foods.firstOrNull { food ->
+        Log.d(TAG, "USDA returned ${response.foods.size} foods")
+        val match = response.foods.firstOrNull { food ->
             food.foodNutrients.any {
                 it.nutrientId == 1008 || it.nutrientName?.contains("Energy", ignoreCase = true) == true
             }
         }?.let { mapUsdaCandidate(it) }
+        Log.d(TAG, "USDA candidate: ${match?.displayName ?: "none"}")
+        match
     } catch (e: Exception) {
         Log.w(TAG, "USDA search failed for '$query'", e)
         null

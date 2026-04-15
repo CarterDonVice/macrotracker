@@ -25,6 +25,7 @@ fun AddEntryChooserScreen(
     logDate: String,
     onSavedFood: (mealSection: String, logDate: String) -> Unit,
     onLabelessFood: (mealSection: String, logDate: String) -> Unit,
+    onManualEntry: (mealSection: String, logDate: String) -> Unit,
     onRecipe: (mealSection: String, logDate: String) -> Unit,
     onBarcode: (mealSection: String, logDate: String) -> Unit,
     onNutritionLabel: (mealSection: String, logDate: String) -> Unit,
@@ -82,6 +83,14 @@ fun AddEntryChooserScreen(
                 description = "Describe a food by name or voice. The AI model estimates the nutrition.",
                 tint = EstimatedColor,
                 onClick = { onLabelessFood(mealSection, logDate) }
+            )
+
+            AddOptionCard(
+                icon = Icons.Outlined.Edit,
+                title = "Manual Entry",
+                description = "Type in a food name and enter nutrition values directly. No AI or scanning needed.",
+                tint = MacroFat,
+                onClick = { onManualEntry(mealSection, logDate) }
             )
 
             AddOptionCard(

@@ -23,6 +23,10 @@ sealed class Screen(val route: String) {
         fun routeFor(mealSection: String, logDate: String) =
             "labeless_food/$mealSection/$logDate"
     }
+    object ManualFoodEntry : Screen("manual_food/{meal_section}/{log_date}") {
+        fun routeFor(mealSection: String, logDate: String) =
+            "manual_food/$mealSection/$logDate"
+    }
     object BarcodeScan : Screen("barcode_scan/{meal_section}/{log_date}") {
         fun routeFor(mealSection: String, logDate: String) =
             "barcode_scan/$mealSection/$logDate"
@@ -72,6 +76,10 @@ fun AppNavigation() {
                 onSearchFoods = { mealSection, logDate ->
                     navController.navigate(Screen.SavedFoodsSearch.routeFor(mealSection, logDate))
                 },
+                onBrowseFoods = { logDate ->
+                    // Direct database access — bypasses meal picker, defaults to BREAKFAST
+                    navController.navigate(Screen.SavedFoodsSearch.routeFor("BREAKFAST", logDate))
+                },
                 onNavigateToWeightTracker = {
                     navController.navigate(Screen.WeightTracker.route)
                 },
@@ -101,6 +109,9 @@ fun AppNavigation() {
                 },
                 onLabelessFood = { ms, date ->
                     navController.navigate(Screen.LabelessFoodEntry.routeFor(ms, date))
+                },
+                onManualEntry = { ms, date ->
+                    navController.navigate(Screen.ManualFoodEntry.routeFor(ms, date))
                 },
                 onRecipe = { ms, date ->
                     navController.navigate(Screen.RecipeScreen.routeForNew(ms, date))
@@ -143,6 +154,23 @@ fun AppNavigation() {
             val ms = backStack.arguments?.getString("meal_section") ?: "BREAKFAST"
             val date = backStack.arguments?.getString("log_date") ?: ""
             LabelessFoodEntryScreen(
+                mealSection = ms,
+                logDate = date,
+                onDone = { navController.popBackStack(Screen.DailyLog.route, false) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.ManualFoodEntry.route,
+            arguments = listOf(
+                navArgument("meal_section") { type = NavType.StringType },
+                navArgument("log_date") { type = NavType.StringType }
+            )
+        ) { backStack ->
+            val ms = backStack.arguments?.getString("meal_section") ?: "BREAKFAST"
+            val date = backStack.arguments?.getString("log_date") ?: ""
+            ManualFoodEntryScreen(
                 mealSection = ms,
                 logDate = date,
                 onDone = { navController.popBackStack(Screen.DailyLog.route, false) },

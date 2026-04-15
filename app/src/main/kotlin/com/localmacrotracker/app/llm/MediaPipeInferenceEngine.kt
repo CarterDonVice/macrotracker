@@ -66,8 +66,26 @@ class MediaPipeInferenceEngine @Inject constructor(
 
     override suspend fun runFoodParser(userInput: String): List<ParsedFoodItem>? {
         val prompt = parserPrompt.replace("{{USER_INPUT}}", userInput)
-        val raw = runInference(prompt) ?: return null
-        return LlmOutputParser.parseFoodItems(raw)
+        val raw = runInference(prompt) ?: run {
+            Log.e(TAG, "runFoodParser: inference returned null")
+            return null
+        }
+        Log.d(TAG, "runFoodParser raw output (${raw.length} chars): ${raw.take(600)}")
+
+        // Strip markdown code fences, then extract the first JSON array
+        val cleaned = raw
+            .replace(Regex("```json\\s*", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("```\\s*"), "")
+            .trim()
+        val start = cleaned.indexOf('[')
+        val end = cleaned.lastIndexOf(']')
+        val extracted = if (start != -1 && end > start) cleaned.substring(start, end + 1) else cleaned
+        Log.d(TAG, "runFoodParser extracted JSON: ${extracted.take(400)}")
+
+        val result = LlmOutputParser.parseFoodItems(extracted)
+        if (result == null) Log.w(TAG, "runFoodParser: JSON parse failed on: ${extracted.take(300)}")
+        else Log.d(TAG, "runFoodParser: parsed ${result.size} items: ${result.map { it.foodName }}")
+        return result
     }
 
     override suspend fun runPlanner(userInput: String): PlannerOutput? {
