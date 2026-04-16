@@ -70,9 +70,10 @@ class MediaPipeInferenceEngine @Inject constructor(
             Log.e(TAG, "runFoodParser: inference returned null")
             return null
         }
-        Log.d(TAG, "runFoodParser raw output (${raw.length} chars): ${raw.take(600)}")
+        // Always log the full raw output so we can see exactly what the model returned
+        Log.d(TAG, "runFoodParser RAW OUTPUT (${raw.length} chars):\n$raw")
 
-        // Strip markdown code fences, then extract the first JSON array
+        // Pass 1: strip markdown code fences, then extract the outermost [...] array
         val cleaned = raw
             .replace(Regex("```json\\s*", RegexOption.IGNORE_CASE), "")
             .replace(Regex("```\\s*"), "")
@@ -80,11 +81,23 @@ class MediaPipeInferenceEngine @Inject constructor(
         val start = cleaned.indexOf('[')
         val end = cleaned.lastIndexOf(']')
         val extracted = if (start != -1 && end > start) cleaned.substring(start, end + 1) else cleaned
-        Log.d(TAG, "runFoodParser extracted JSON: ${extracted.take(400)}")
+        Log.d(TAG, "runFoodParser PASS 1 extracted: ${extracted.take(500)}")
 
-        val result = LlmOutputParser.parseFoodItems(extracted)
-        if (result == null) Log.w(TAG, "runFoodParser: JSON parse failed on: ${extracted.take(300)}")
-        else Log.d(TAG, "runFoodParser: parsed ${result.size} items: ${result.map { it.foodName }}")
+        var result = LlmOutputParser.parseFoodItems(extracted)
+
+        // Pass 2: if the model returned a bare object {} instead of an array,
+        // wrap it in [] and try again
+        if (result == null) {
+            val wrapped = "[$extracted]"
+            Log.d(TAG, "runFoodParser PASS 2 (wrapped): ${wrapped.take(500)}")
+            result = LlmOutputParser.parseFoodItems(wrapped)
+        }
+
+        if (result == null) {
+            Log.w(TAG, "runFoodParser: ALL parse attempts failed. Full raw output:\n$raw")
+        } else {
+            Log.d(TAG, "runFoodParser: parsed ${result.size} items: ${result.map { it.foodName }}")
+        }
         return result
     }
 

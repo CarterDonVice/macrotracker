@@ -8,8 +8,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -22,6 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.localmacrotracker.app.data.model.MealSection
@@ -89,7 +93,7 @@ fun LabelessFoodEntryScreen(
         )
     }
 
-    // Edit entry dialog
+    // Full-form edit dialog
     editingIndex?.let { idx ->
         val entry = confirmedEntries.getOrNull(idx)
         if (entry != null) {
@@ -334,11 +338,20 @@ private fun ConfirmedEntryCard(
                     fontWeight = FontWeight.Medium,
                     color = TextPrimary
                 )
+                if (entry.brand != null) {
+                    Text(
+                        entry.brand,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AccentGreen,
+                        fontSize = 10.sp
+                    )
+                }
                 val qty = entry.quantity.let {
                     if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString()
                 }
+                val servingLabel = entry.servingSize ?: "$qty ${entry.unit}"
                 Text(
-                    "$qty ${entry.unit}",
+                    servingLabel,
                     style = MaterialTheme.typography.labelSmall,
                     color = TextSecondary
                 )
@@ -380,7 +393,7 @@ private fun ConfirmedEntryCard(
     }
 }
 
-// ── Edit dialog ───────────────────────────────────────────────────────────────
+// ── Full edit dialog ──────────────────────────────────────────────────────────
 
 @Composable
 private fun EditEntryDialog(
@@ -388,47 +401,176 @@ private fun EditEntryDialog(
     onDismiss: () -> Unit,
     onSave: (LabelessFoodViewModel.ConfirmedEntry) -> Unit
 ) {
+    // Food info
     var name by remember { mutableStateOf(entry.displayName) }
+    var brand by remember { mutableStateOf(entry.brand ?: "") }
+
+    // Quantity / serving
+    var servingSize by remember { mutableStateOf(entry.servingSize ?: "") }
+    var quantity by remember {
+        mutableStateOf(
+            entry.quantity.let { if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString() }
+        )
+    }
+    var unit by remember { mutableStateOf(entry.unit) }
+    var weightG by remember { mutableStateOf(entry.weightG?.toString() ?: "") }
+    var weightOz by remember { mutableStateOf(entry.weightOz?.toString() ?: "") }
+
+    // Description
+    var preparation by remember { mutableStateOf(entry.preparation ?: "") }
+    var leanness by remember { mutableStateOf(entry.leanness ?: "") }
+    var part by remember { mutableStateOf(entry.part ?: "") }
+    var fatContent by remember { mutableStateOf(entry.fatContent ?: "") }
+
+    // Nutrition
     var calories by remember { mutableStateOf(entry.calories?.toInt()?.toString() ?: "") }
     var protein by remember { mutableStateOf(entry.proteinGrams?.toInt()?.toString() ?: "") }
     var carbs by remember { mutableStateOf(entry.carbsGrams?.toInt()?.toString() ?: "") }
     var fat by remember { mutableStateOf(entry.fatGrams?.toInt()?.toString() ?: "") }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        containerColor = DarkSurface,
-        title = { Text("Edit Entry", color = TextPrimary, fontWeight = FontWeight.SemiBold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                EditField("Food name", name, KeyboardType.Text) { name = it }
-                EditField("Calories (kcal)", calories, KeyboardType.Number) { calories = it }
-                EditField("Protein (g)", protein, KeyboardType.Decimal) { protein = it }
-                EditField("Carbs (g)", carbs, KeyboardType.Decimal) { carbs = it }
-                EditField("Fat (g)", fat, KeyboardType.Decimal) { fat = it }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val cal = calories.toDoubleOrNull()
-                    onSave(
-                        entry.copy(
-                            displayName = name.ifBlank { entry.displayName },
-                            calories = cal,
-                            proteinGrams = protein.toDoubleOrNull(),
-                            carbsGrams = carbs.toDoubleOrNull(),
-                            fatGrams = fat.toDoubleOrNull(),
-                            needsManualEntry = cal == null
-                        )
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.92f),
+            shape = RoundedCornerShape(16.dp),
+            color = DarkSurface
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+
+                // Title bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Edit Entry",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary,
+                        modifier = Modifier.weight(1f)
                     )
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = AccentGreen,
-                    contentColor = Color.Black)
-            ) { Text("Save") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Filled.Close, "Dismiss", tint = TextSecondary,
+                            modifier = Modifier.size(20.dp))
+                    }
+                }
+
+                HorizontalDivider(color = Divider, thickness = 0.5.dp)
+
+                // Scrollable form body
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Spacer(Modifier.height(4.dp))
+
+                    // ── Food info ──────────────────────────────────────────
+                    SectionLabel("Food")
+                    EditField("Food name *", name, KeyboardType.Text) { name = it }
+                    EditField("Brand (optional)", brand, KeyboardType.Text) { brand = it }
+
+                    HorizontalDivider(color = Divider, thickness = 0.5.dp)
+
+                    // ── Quantity / serving ─────────────────────────────────
+                    SectionLabel("Quantity")
+                    EditField("Serving size (e.g. 1 cup, 85g)", servingSize, KeyboardType.Text) { servingSize = it }
+                    EditField("Number of servings", quantity, KeyboardType.Decimal) { quantity = it }
+                    EditField("Unit (e.g. g, oz, cup)", unit, KeyboardType.Text) { unit = it }
+                    EditField("Weight (g)", weightG, KeyboardType.Decimal) { weightG = it }
+                    EditField("Weight (oz)", weightOz, KeyboardType.Decimal) { weightOz = it }
+
+                    HorizontalDivider(color = Divider, thickness = 0.5.dp)
+
+                    // ── Description ────────────────────────────────────────
+                    SectionLabel("Description")
+                    EditField("Preparation (e.g. cooked, raw, frozen)", preparation, KeyboardType.Text) { preparation = it }
+                    EditField("Leanness (e.g. lean, 80/20, extra-lean)", leanness, KeyboardType.Text) { leanness = it }
+                    EditField("Part (e.g. breast, thigh, whole)", part, KeyboardType.Text) { part = it }
+                    EditField("Fat content (e.g. low-fat, full-fat)", fatContent, KeyboardType.Text) { fatContent = it }
+
+                    HorizontalDivider(color = Divider, thickness = 0.5.dp)
+
+                    // ── Nutrition ──────────────────────────────────────────
+                    SectionLabel("Nutrition per serving")
+                    EditField("Calories (kcal)", calories, KeyboardType.Number) { calories = it }
+                    EditField("Protein (g)", protein, KeyboardType.Decimal) { protein = it }
+                    EditField("Carbs (g)", carbs, KeyboardType.Decimal) { carbs = it }
+                    EditField("Fat (g)", fat, KeyboardType.Decimal) { fat = it }
+
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                HorizontalDivider(color = Divider, thickness = 0.5.dp)
+
+                // Action buttons
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Cancel", color = TextSecondary)
+                    }
+                    Button(
+                        onClick = {
+                            val cal = calories.toDoubleOrNull()
+                            onSave(
+                                entry.copy(
+                                    displayName = name.ifBlank { entry.displayName },
+                                    brand = brand.ifBlank { null },
+                                    servingSize = servingSize.ifBlank { null },
+                                    quantity = quantity.toDoubleOrNull() ?: entry.quantity,
+                                    unit = unit.ifBlank { entry.unit },
+                                    weightG = weightG.toDoubleOrNull(),
+                                    weightOz = weightOz.toDoubleOrNull(),
+                                    preparation = preparation.ifBlank { null },
+                                    leanness = leanness.ifBlank { null },
+                                    part = part.ifBlank { null },
+                                    fatContent = fatContent.ifBlank { null },
+                                    calories = cal,
+                                    proteinGrams = protein.toDoubleOrNull(),
+                                    carbsGrams = carbs.toDoubleOrNull(),
+                                    fatGrams = fat.toDoubleOrNull(),
+                                    needsManualEntry = cal == null
+                                )
+                            )
+                        },
+                        modifier = Modifier.weight(2f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AccentGreen,
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Save", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        color = TextSecondary,
+        modifier = Modifier.padding(top = 4.dp)
     )
 }
 

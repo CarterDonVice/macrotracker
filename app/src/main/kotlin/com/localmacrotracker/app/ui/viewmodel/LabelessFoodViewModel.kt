@@ -41,10 +41,22 @@ class LabelessFoodViewModel @Inject constructor(
     private val prefs: AppPreferences
 ) : ViewModel() {
 
+    /**
+     * All editable fields for a single food entry on the confirmation screen.
+     * Fields mirror the full manual food entry form.
+     */
     data class ConfirmedEntry(
         val displayName: String,
-        val quantity: Double,
+        val brand: String? = null,
+        val servingSize: String? = null,      // text description of one serving, e.g. "1 cup"
+        val quantity: Double,                  // number of servings consumed
         val unit: String,
+        val weightG: Double? = null,
+        val weightOz: Double? = null,
+        val preparation: String? = null,
+        val leanness: String? = null,
+        val part: String? = null,
+        val fatContent: String? = null,
         val calories: Double?,
         val proteinGrams: Double?,
         val carbsGrams: Double?,
@@ -77,20 +89,28 @@ class LabelessFoodViewModel @Inject constructor(
             try {
                 // Phase 1: LLM parsing
                 _uiState.value = UiState.Working("Parsing your food description…")
-                val llmResult: List<ParsedFoodItem>? = if (inferenceEngine.status == ModelStatus.READY) {
+                val modelReady = inferenceEngine.status == ModelStatus.READY
+                val llmResult: List<ParsedFoodItem>? = if (modelReady) {
                     Log.d(TAG, "Running food parser on: $input")
                     inferenceEngine.runFoodParser(input).also { r ->
                         Log.d(TAG, "Food parser result: ${r?.size} items — $r")
                     }
                 } else null
 
-                // null = parse/inference failure → fall back to single-item direct lookup
-                // empty list = model explicitly found nothing → show error
                 val parsedItems: List<ParsedFoodItem> = when {
-                    llmResult == null -> {
-                        Log.w(TAG, "LLM parse failed; falling back to direct lookup for: $input")
+                    // No model loaded — fall back to single-item direct lookup
+                    !modelReady -> {
+                        Log.w(TAG, "No model loaded; falling back to direct lookup for: $input")
                         listOf(ParsedFoodItem(foodName = input.trim(), quantity = 1.0, unit = "serving"))
                     }
+                    // Model ran but all parse attempts failed
+                    llmResult == null -> {
+                        _uiState.value = UiState.Error(
+                            "Could not parse foods. Please try describing one food at a time."
+                        )
+                        return@launch
+                    }
+                    // Model returned an empty array
                     llmResult.isEmpty() -> {
                         _uiState.value = UiState.Error("No foods found. Please be more specific.")
                         return@launch
@@ -98,14 +118,18 @@ class LabelessFoodViewModel @Inject constructor(
                     else -> llmResult
                 }
 
+                Log.d(TAG, "Parsed ${parsedItems.size} food item(s): ${parsedItems.map { it.foodName }}")
+
                 // Phase 2: Parallel API lookups for every parsed item
                 _uiState.value = UiState.Working("Looking up nutrition data…")
                 val apiKey = prefs.usdaApiKey.first()?.takeIf { it.isNotBlank() } ?: FALLBACK_USDA_KEY
 
+                // Each item gets its own lookup — produces a separate ConfirmedEntry per food
                 val entries = parsedItems.map { item ->
                     async { lookupItem(item, apiKey) }
                 }.awaitAll()
 
+                Log.d(TAG, "Confirmation entries (${entries.size}): ${entries.map { it.displayName }}")
                 _confirmedEntries.value = entries
                 _uiState.value = UiState.Confirmation
             } catch (e: Throwable) {
@@ -125,10 +149,13 @@ class LabelessFoodViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val rows = _confirmedEntries.value.map { entry ->
+                    val brandedName = listOfNotNull(entry.brand, entry.displayName).joinToString(" ")
                     FoodLogEntryEntity(
                         logDate = pendingLogDate.toString(),
                         mealSection = pendingMealSection.name,
-                        displayNameSnapshot = entry.displayName,
+                        displayNameSnapshot = brandedName,
+                        originalNameSnapshot = entry.displayName,
+                        servingTextSnapshot = entry.servingSize ?: "${entry.quantity} ${entry.unit}",
                         quantity = entry.quantity,
                         unit = entry.unit,
                         caloriesExact = entry.calories,
@@ -180,8 +207,16 @@ class LabelessFoodViewModel @Inject constructor(
             val scale = computeScale(item, candidate)
             ConfirmedEntry(
                 displayName = item.foodName,
+                brand = item.brand,
+                servingSize = candidate.servingText,
                 quantity = item.quantity ?: 1.0,
                 unit = item.unit ?: "serving",
+                weightG = item.weightG,
+                weightOz = item.weightOz,
+                preparation = item.preparation,
+                leanness = item.leanness,
+                part = item.part,
+                fatContent = item.fatContent,
                 calories = candidate.calories * scale,
                 proteinGrams = candidate.proteinGrams * scale,
                 carbsGrams = candidate.carbsGrams * scale,
@@ -191,8 +226,16 @@ class LabelessFoodViewModel @Inject constructor(
         } else {
             ConfirmedEntry(
                 displayName = item.foodName,
+                brand = item.brand,
+                servingSize = null,
                 quantity = item.quantity ?: 1.0,
                 unit = item.unit ?: "serving",
+                weightG = item.weightG,
+                weightOz = item.weightOz,
+                preparation = item.preparation,
+                leanness = item.leanness,
+                part = item.part,
+                fatContent = item.fatContent,
                 calories = null,
                 proteinGrams = null,
                 carbsGrams = null,
