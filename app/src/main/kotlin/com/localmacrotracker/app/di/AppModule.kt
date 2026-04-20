@@ -5,8 +5,8 @@ import com.localmacrotracker.app.data.db.AppDatabase
 import com.localmacrotracker.app.data.db.dao.*
 import com.localmacrotracker.app.data.network.OcrLabelParser
 import com.localmacrotracker.app.domain.OcrLabelParserImpl
+import com.localmacrotracker.app.llm.ClaudeInferenceEngine
 import com.localmacrotracker.app.llm.LocalInferenceEngine
-import com.localmacrotracker.app.llm.MediaPipeInferenceEngine
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -38,7 +38,7 @@ abstract class BindingsModule {
 
     @Binds
     @Singleton
-    abstract fun bindInferenceEngine(impl: MediaPipeInferenceEngine): LocalInferenceEngine
+    abstract fun bindInferenceEngine(impl: ClaudeInferenceEngine): LocalInferenceEngine
 
     @Binds
     @Singleton

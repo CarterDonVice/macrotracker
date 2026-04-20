@@ -7,6 +7,11 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+val localProps = java.util.Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) load(f.inputStream())
+}
+
 android {
     namespace = "com.localmacrotracker.app"
     compileSdk = 35
@@ -19,6 +24,12 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField(
+            "String",
+            "DEFAULT_CLAUDE_API_KEY",
+            "\"${localProps["claude.api.key"] ?: ""}\""
+        )
 
         // Room schema export for migration tracking
         ksp {

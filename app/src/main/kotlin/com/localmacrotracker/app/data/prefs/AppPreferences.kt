@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.localmacrotracker.app.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -25,6 +26,7 @@ class AppPreferences @Inject constructor(
 
     companion object {
         private val KEY_USDA_API_KEY = stringPreferencesKey("usda_api_key")
+        private val KEY_CLAUDE_API_KEY = stringPreferencesKey("claude_api_key")
         private val KEY_MODEL_URI = stringPreferencesKey("model_uri")
         private val KEY_MODEL_DISPLAY_NAME = stringPreferencesKey("model_display_name")
         private val KEY_ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
@@ -33,15 +35,19 @@ class AppPreferences @Inject constructor(
         private val KEY_GOAL_PROTEIN = intPreferencesKey("goal_protein")
         private val KEY_GOAL_CARBS = intPreferencesKey("goal_carbs")
         private val KEY_GOAL_FAT = intPreferencesKey("goal_fat")
+
+        val DEFAULT_CLAUDE_API_KEY: String get() = BuildConfig.DEFAULT_CLAUDE_API_KEY
     }
 
     val usdaApiKey: Flow<String?> = store.data.map { it[KEY_USDA_API_KEY] }
+    val claudeApiKey: Flow<String> = store.data.map { it[KEY_CLAUDE_API_KEY] ?: DEFAULT_CLAUDE_API_KEY }
     val modelUri: Flow<String?> = store.data.map { it[KEY_MODEL_URI] }
     val modelDisplayName: Flow<String?> = store.data.map { it[KEY_MODEL_DISPLAY_NAME] }
     val isOnboardingComplete: Flow<Boolean> = store.data.map { it[KEY_ONBOARDING_COMPLETE] ?: false }
     val offUserAgent: Flow<String?> = store.data.map { it[KEY_OFF_USER_AGENT] }
 
     suspend fun setUsdaApiKey(key: String) = store.edit { it[KEY_USDA_API_KEY] = key }
+    suspend fun setClaudeApiKey(key: String) = store.edit { it[KEY_CLAUDE_API_KEY] = key }
     suspend fun setModelUri(uri: Uri, displayName: String) = store.edit {
         it[KEY_MODEL_URI] = uri.toString()
         it[KEY_MODEL_DISPLAY_NAME] = displayName

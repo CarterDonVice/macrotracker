@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.localmacrotracker.app.data.prefs.AppPreferences
+import com.localmacrotracker.app.data.prefs.AppPreferences.Companion.DEFAULT_CLAUDE_API_KEY
 import com.localmacrotracker.app.llm.LocalInferenceEngine
 import com.localmacrotracker.app.llm.ModelStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,6 +39,9 @@ class SettingsViewModel @Inject constructor(
         .map { it ?: "" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
+    val claudeKey: StateFlow<String> = prefs.claudeApiKey
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppPreferences.DEFAULT_CLAUDE_API_KEY)
+
     val modelUri: StateFlow<String?> = prefs.modelUri
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -63,9 +67,11 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun saveUsdaKey(key: String) {
-        viewModelScope.launch {
-            prefs.setUsdaApiKey(key)
-        }
+        viewModelScope.launch { prefs.setUsdaApiKey(key) }
+    }
+
+    fun saveClaudeKey(key: String) {
+        viewModelScope.launch { prefs.setClaudeApiKey(key) }
     }
 
     fun selectModel(uri: Uri, displayName: String) {
