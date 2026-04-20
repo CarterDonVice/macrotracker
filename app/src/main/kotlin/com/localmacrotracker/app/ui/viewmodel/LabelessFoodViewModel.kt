@@ -14,8 +14,7 @@ import com.localmacrotracker.app.data.network.api.OpenFoodFactsApi
 import com.localmacrotracker.app.data.network.api.UsdaApi
 import com.localmacrotracker.app.data.network.api.UsdaFood
 import com.localmacrotracker.app.data.prefs.AppPreferences
-import com.localmacrotracker.app.llm.LocalInferenceEngine
-import com.localmacrotracker.app.llm.ModelStatus
+import com.localmacrotracker.app.llm.ClaudeInferenceEngine
 import com.localmacrotracker.app.llm.model.ParsedFoodItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
@@ -34,22 +33,18 @@ private const val FALLBACK_USDA_KEY = "uZnfYQldxzrRhjLyTJ78LTeGS8zuYq5UE7vmE6t4"
 
 @HiltViewModel
 class LabelessFoodViewModel @Inject constructor(
-    private val inferenceEngine: LocalInferenceEngine,
+    private val claudeEngine: ClaudeInferenceEngine,
     private val usdaApi: UsdaApi,
     private val offApi: OpenFoodFactsApi,
     private val foodLogDao: FoodLogDao,
     private val prefs: AppPreferences
 ) : ViewModel() {
 
-    /**
-     * All editable fields for a single food entry on the confirmation screen.
-     * Fields mirror the full manual food entry form.
-     */
     data class ConfirmedEntry(
         val displayName: String,
         val brand: String? = null,
-        val servingSize: String? = null,      // text description of one serving, e.g. "1 cup"
-        val quantity: Double,                  // number of servings consumed
+        val servingSize: String? = null,
+        val quantity: Double,
         val unit: String,
         val weightG: Double? = null,
         val weightOz: Double? = null,
@@ -77,8 +72,6 @@ class LabelessFoodViewModel @Inject constructor(
     private val _confirmedEntries = MutableStateFlow<List<ConfirmedEntry>>(emptyList())
     val confirmedEntries: StateFlow<List<ConfirmedEntry>> = _confirmedEntries.asStateFlow()
 
-    val isModelReady: StateFlow<Boolean> = MutableStateFlow(inferenceEngine.status == ModelStatus.READY)
-
     private var pendingMealSection: MealSection = MealSection.BREAKFAST
     private var pendingLogDate: LocalDate = LocalDate.now()
 
@@ -87,44 +80,42 @@ class LabelessFoodViewModel @Inject constructor(
         pendingLogDate = logDate
         viewModelScope.launch {
             try {
-                // Phase 1: LLM parsing
                 _uiState.value = UiState.Working("Parsing your food description…")
-                val modelReady = inferenceEngine.status == ModelStatus.READY
-                val llmResult: List<ParsedFoodItem>? = if (modelReady) {
-                    Log.d(TAG, "Running food parser on: $input")
-                    inferenceEngine.runFoodParser(input).also { r ->
-                        Log.d(TAG, "Food parser result: ${r?.size} items — $r")
-                    }
-                } else null
+                Log.d(TAG, "Calling Claude for: $input")
 
-                val parsedItems: List<ParsedFoodItem> = when {
-                    // No model loaded — fall back to single-item direct lookup
-                    !modelReady -> {
-                        Log.w(TAG, "No model loaded; falling back to direct lookup for: $input")
-                        listOf(ParsedFoodItem(foodName = input.trim(), quantity = 1.0, unit = "serving"))
-                    }
-                    // Model ran but all parse attempts failed
-                    llmResult == null -> {
+                val parsedItems: List<ParsedFoodItem> = when (val result = claudeEngine.parseFoods(input)) {
+                    is ClaudeInferenceEngine.ParseResult.NoApiKey -> {
                         _uiState.value = UiState.Error(
-                            "Could not parse foods. Please try describing one food at a time."
+                            "Claude API key not set. Add it in Settings → API Keys."
                         )
                         return@launch
                     }
-                    // Model returned an empty array
-                    llmResult.isEmpty() -> {
-                        _uiState.value = UiState.Error("No foods found. Please be more specific.")
+                    is ClaudeInferenceEngine.ParseResult.NetworkError -> {
+                        _uiState.value = UiState.Error(
+                            "Network error reaching Claude. Check your connection and try again."
+                        )
                         return@launch
                     }
-                    else -> llmResult
+                    is ClaudeInferenceEngine.ParseResult.ParseFailed -> {
+                        _uiState.value = UiState.Error(
+                            "Could not parse foods. Try describing one food at a time."
+                        )
+                        return@launch
+                    }
+                    is ClaudeInferenceEngine.ParseResult.ParsedItems -> {
+                        if (result.items.isEmpty()) {
+                            _uiState.value = UiState.Error("No foods found. Please be more specific.")
+                            return@launch
+                        }
+                        result.items
+                    }
                 }
 
                 Log.d(TAG, "Parsed ${parsedItems.size} food item(s): ${parsedItems.map { it.foodName }}")
 
-                // Phase 2: Parallel API lookups for every parsed item
                 _uiState.value = UiState.Working("Looking up nutrition data…")
                 val apiKey = prefs.usdaApiKey.first()?.takeIf { it.isNotBlank() } ?: FALLBACK_USDA_KEY
 
-                // Each item gets its own lookup — produces a separate ConfirmedEntry per food
                 val entries = parsedItems.map { item ->
                     async { lookupItem(item, apiKey) }
                 }.awaitAll()
@@ -199,7 +190,6 @@ class LabelessFoodViewModel @Inject constructor(
         val offResult = offDeferred?.await()
         val usdaResult = usdaDeferred.await()
 
-        // Branded items prefer OFF (has brand data); generic prefer USDA
         val candidate = if (item.brand != null) (offResult ?: usdaResult)
                         else (usdaResult ?: offResult)
 
@@ -245,7 +235,6 @@ class LabelessFoodViewModel @Inject constructor(
         }
     }
 
-    /** Weight-based or quantity-based scaling against the candidate's serving. */
     private fun computeScale(item: ParsedFoodItem, candidate: FoodCandidate): Double {
         val weightG = item.weightG ?: item.weightOz?.let { it * 28.3495 }
         return if (weightG != null) {
@@ -262,7 +251,6 @@ class LabelessFoodViewModel @Inject constructor(
     private suspend fun trySearchOff(query: String): FoodCandidate? = try {
         Log.d(TAG, "OFF search → '$query'")
         val response = offApi.searchProducts(query = query, pageSize = 3)
-        Log.d(TAG, "OFF returned ${response.products.size} products")
         val match = response.products.firstOrNull { p ->
             p.productName != null &&
                 (p.nutriments?.caloriesPerServing != null || p.nutriments?.caloriesPer100g != null)
@@ -277,7 +265,6 @@ class LabelessFoodViewModel @Inject constructor(
     private suspend fun trySearchUsda(query: String, apiKey: String): FoodCandidate? = try {
         Log.d(TAG, "USDA search → '$query'")
         val response = usdaApi.searchFoods(query = query, apiKey = apiKey, pageSize = 3)
-        Log.d(TAG, "USDA returned ${response.foods.size} foods")
         val match = response.foods.firstOrNull { food ->
             food.foodNutrients.any {
                 it.nutrientId == 1008 || it.nutrientName?.contains("Energy", ignoreCase = true) == true

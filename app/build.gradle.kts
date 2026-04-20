@@ -125,9 +125,6 @@ dependencies {
     // DataStore for preferences
     implementation(libs.datastore.preferences)
 
-    // MediaPipe for local LLM
-    implementation(libs.mediapipe.tasks.genai)
-
     // HTML parsing
     implementation(libs.jsoup)
 

@@ -8,8 +8,6 @@ import com.localmacrotracker.app.data.model.MealSection
 import com.localmacrotracker.app.data.model.SourceType
 import com.localmacrotracker.app.data.network.FoodLookupProvider
 import com.localmacrotracker.app.data.network.providers.*
-import com.localmacrotracker.app.llm.LocalInferenceEngine
-import com.localmacrotracker.app.llm.ModelStatus
 import com.localmacrotracker.app.llm.model.PlannerItem
 import com.localmacrotracker.app.llm.model.PlannerOutput
 import kotlinx.serialization.encodeToString
@@ -27,8 +25,7 @@ class FoodLookupOrchestrator @Inject constructor(
     private val offProvider: OpenFoodFactsProvider,
     private val brandPageProvider: BrandPageProvider,
     private val restaurantPageProvider: RestaurantPageProvider,
-    private val groceryPageProvider: GroceryPageProvider,
-    private val inferenceEngine: LocalInferenceEngine
+    private val groceryPageProvider: GroceryPageProvider
 ) {
 
     private val providerMap: Map<String, FoodLookupProvider> = mapOf(
@@ -40,8 +37,6 @@ class FoodLookupOrchestrator @Inject constructor(
         "grocery_page" to groceryPageProvider
     )
 
-    private val json = Json { ignoreUnknownKeys = true }
-
     /**
      * Full pipeline for labeless / multi-food text input.
      * Returns one draft FoodLogEntryEntity per resolved item.
@@ -51,12 +46,8 @@ class FoodLookupOrchestrator @Inject constructor(
         mealSection: MealSection,
         logDate: LocalDate
     ): List<FoodLogEntryEntity> {
-        // Step 1: Run search planner (LLM) or fall back to simple single-item plan
-        val plan = if (inferenceEngine.status == ModelStatus.READY) {
-            inferenceEngine.runPlanner(userInput)
-        } else null
-
-        val effectivePlan = plan ?: buildFallbackPlan(userInput)
+        // Step 1: Build single-item plan from user input
+        val effectivePlan = buildFallbackPlan(userInput)
 
         // Step 2: Resolve each item
         return effectivePlan.items.map { item ->
@@ -89,28 +80,10 @@ class FoodLookupOrchestrator @Inject constructor(
             return buildManualDraft(item, mealSection, logDate)
         }
 
-        // Step 3: Run candidate chooser (LLM) or pick best heuristically
-        val chosen = if (inferenceEngine.status == ModelStatus.READY && candidates.size > 1) {
-            val itemContext = buildItemContext(item)
-            val candidatesJson = json.encodeToString(
-                candidates.take(5).map { candidateToMap(it) }
-            )
-            val selection = inferenceEngine.runCandidateChooser(itemContext, candidatesJson)
-            if (selection?.selectionType == "no_match") {
-                return buildManualDraft(item, mealSection, logDate)
-            }
-            candidates.firstOrNull { it.id == selection?.selectedCandidateId }
-                ?.let { candidate ->
-                    val factor = selection?.portionFactor ?: 1.0
-                    if (factor != 1.0) scaledCandidate(candidate, factor) else candidate
-                }
-                ?: candidates.first()
-        } else {
-            // Heuristic: local saved → exact API → first result
-            candidates.firstOrNull { it.isLocalSaved }
-                ?: candidates.firstOrNull { it.exactnessType == ExactnessType.EXACT }
-                ?: candidates.first()
-        }
+        // Step 3: Pick best candidate heuristically
+        val chosen = candidates.firstOrNull { it.isLocalSaved }
+            ?: candidates.firstOrNull { it.exactnessType == ExactnessType.EXACT }
+            ?: candidates.first()
 
         // Step 4: Apply quantity scaling from planner
         val portionFactor = item.portionFactorHint
@@ -127,14 +100,6 @@ class FoodLookupOrchestrator @Inject constructor(
         val needsReminder = !scaled.isLocalSaved
 
         return if (isEstimated) {
-            // Run range estimator if LLM available
-            val range = if (inferenceEngine.status == ModelStatus.READY) {
-                inferenceEngine.runRangeEstimator(
-                    buildItemContext(item),
-                    "source_uncertain"
-                )
-            } else null
-
             FoodLogEntryEntity(
                 logDate = logDate.toString(),
                 mealSection = mealSection.name,
@@ -143,14 +108,14 @@ class FoodLookupOrchestrator @Inject constructor(
                 servingTextSnapshot = scaled.servingText,
                 quantity = item.numericQuantity,
                 unit = item.unitHint ?: "serving",
-                caloriesMin = range?.caloriesMin ?: scaled.calories * 0.9,
-                caloriesMax = range?.caloriesMax ?: scaled.calories * 1.1,
-                proteinMin = range?.proteinMinG ?: scaled.proteinGrams * 0.9,
-                proteinMax = range?.proteinMaxG ?: scaled.proteinGrams * 1.1,
-                carbsMin = range?.carbsMinG ?: scaled.carbsGrams * 0.9,
-                carbsMax = range?.carbsMaxG ?: scaled.carbsGrams * 1.1,
-                fatMin = range?.fatMinG ?: scaled.fatGrams * 0.9,
-                fatMax = range?.fatMaxG ?: scaled.fatGrams * 1.1,
+                caloriesMin = scaled.calories * 0.9,
+                caloriesMax = scaled.calories * 1.1,
+                proteinMin = scaled.proteinGrams * 0.9,
+                proteinMax = scaled.proteinGrams * 1.1,
+                carbsMin = scaled.carbsGrams * 0.9,
+                carbsMax = scaled.carbsGrams * 1.1,
+                fatMin = scaled.fatGrams * 0.9,
+                fatMax = scaled.fatGrams * 1.1,
                 isEstimated = true,
                 needsManualSaveReminder = needsReminder,
                 sourceTypeSnapshot = scaled.sourceType.name

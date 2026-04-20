@@ -10,7 +10,6 @@ import java.time.LocalDate
 import com.localmacrotracker.app.ui.screens.*
 
 sealed class Screen(val route: String) {
-    object Onboarding : Screen("onboarding")
     object DailyLog : Screen("daily_log")
     object AddEntryChooser : Screen("add_entry_chooser/{meal_section}/{log_date}") {
         fun routeFor(mealSection: String, logDate: String) = "add_entry_chooser/$mealSection/$logDate"
@@ -56,18 +55,8 @@ fun AppNavigation() {
 
     NavHost(
         navController = navController,
-        startDestination = Screen.Onboarding.route
+        startDestination = Screen.DailyLog.route
     ) {
-        composable(Screen.Onboarding.route) {
-            OnboardingScreen(
-                onContinue = {
-                    navController.navigate(Screen.DailyLog.route) {
-                        popUpTo(Screen.Onboarding.route) { inclusive = true }
-                    }
-                }
-            )
-        }
-
         composable(Screen.DailyLog.route) {
             DailyLogScreen(
                 onAddEntry = { mealSection, logDate ->

@@ -43,7 +43,6 @@ fun LabelessFoodEntryScreen(
     viewModel: LabelessFoodViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val isModelReady by viewModel.isModelReady.collectAsStateWithLifecycle()
     val confirmedEntries by viewModel.confirmedEntries.collectAsStateWithLifecycle()
 
     var inputText by remember { mutableStateOf("") }
@@ -147,29 +146,6 @@ fun LabelessFoodEntryScreen(
                         .padding(horizontal = 16.dp)
                 ) {
                     Spacer(Modifier.height(12.dp))
-
-                    if (!isModelReady) {
-                        Surface(
-                            color = ReminderAmber.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(Icons.Filled.Warning, null, tint = ReminderAmber,
-                                    modifier = Modifier.size(20.dp))
-                                Text(
-                                    "No AI model loaded. Food names will be searched directly.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = ReminderAmber
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                    }
 
                     OutlinedTextField(
                         value = inputText,
