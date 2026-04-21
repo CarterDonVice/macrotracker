@@ -195,7 +195,7 @@ fun LabelessFoodEntryScreen(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = AccentGreen,
-                            contentColor = Color.Black
+                            contentColor = Color.White
                         ),
                         shape = RoundedCornerShape(10.dp)
                     ) {
@@ -268,7 +268,7 @@ fun LabelessFoodEntryScreen(
                                 modifier = Modifier.weight(2f),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = AccentGreen,
-                                    contentColor = Color.Black
+                                    contentColor = Color.White
                                 ),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
@@ -528,7 +528,7 @@ private fun EditEntryDialog(
                         modifier = Modifier.weight(2f),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = AccentGreen,
-                            contentColor = Color.Black
+                            contentColor = Color.White
                         ),
                         shape = RoundedCornerShape(10.dp)
                     ) {

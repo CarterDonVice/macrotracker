@@ -322,7 +322,7 @@ private fun FoundFoodCard(
         Button(
             onClick = onAddToLog,
             modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.Black)
+            colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.White)
         ) { Text("Add to Log", fontWeight = FontWeight.Bold) }
         OutlinedButton(onClick = onViewEdit, modifier = Modifier.weight(1f)) {
             Text("View / Edit")
@@ -361,7 +361,7 @@ private fun NewFoodCard(
         Button(
             onClick = onSaveAndAdd,
             modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.Black)
+            colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.White)
         ) { Text("Save + Add", fontWeight = FontWeight.Bold) }
         OutlinedButton(onClick = onAddWithoutSaving, modifier = Modifier.weight(1f)) {
             Text("Add Only")
@@ -388,7 +388,7 @@ private fun NotFoundCard(onManualEntry: () -> Unit) {
     Button(
         onClick = onManualEntry,
         modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.Black)
+        colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.White)
     ) { Text("Enter Manually", fontWeight = FontWeight.Bold) }
     Spacer(Modifier.height(8.dp))
 }
@@ -420,7 +420,7 @@ private fun PermissionDeniedContent(rationale: Boolean, onRequest: () -> Unit) {
                 color = TextSecondary,
                 style = MaterialTheme.typography.bodyMedium
             )
-            Button(onClick = onRequest, colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.Black)) {
+            Button(onClick = onRequest, colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.White)) {
                 Text("Grant Permission")
             }
         }

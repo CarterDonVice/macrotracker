@@ -135,7 +135,7 @@ fun ManualFoodEntryScreen(
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = AccentGreen,
-                    contentColor = Color.Black
+                    contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(10.dp)
             ) {

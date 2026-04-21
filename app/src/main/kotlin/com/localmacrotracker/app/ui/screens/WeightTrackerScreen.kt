@@ -157,7 +157,7 @@ fun WeightTrackerScreen(
                                 },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = AccentGreen,
-                                    contentColor = Color.Black
+                                    contentColor = Color.White
                                 ),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
@@ -420,10 +420,10 @@ fun WeightTrackerScreen(
                     navigationContentColor = TextSecondary,
                     yearContentColor = TextPrimary,
                     currentYearContentColor = AccentGreen,
-                    selectedYearContentColor = Color.Black,
+                    selectedYearContentColor = Color.White,
                     selectedYearContainerColor = AccentGreen,
                     dayContentColor = TextPrimary,
-                    selectedDayContentColor = Color.Black,
+                    selectedDayContentColor = Color.White,
                     selectedDayContainerColor = AccentGreen,
                     todayContentColor = AccentGreen,
                     todayDateBorderColor = AccentGreen

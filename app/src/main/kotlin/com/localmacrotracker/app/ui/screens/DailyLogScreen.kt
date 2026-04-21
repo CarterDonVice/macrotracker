@@ -261,7 +261,7 @@ private fun GoalProgressSection(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            if (goalCalories > 0) GoalBar("Cal", cal.toInt(), goalCalories, TextPrimary)
+            if (goalCalories > 0) GoalBar("Cal", cal.toInt(), goalCalories, MacroCalories)
             if (goalProtein > 0) GoalBar("Pro", pro.toInt(), goalProtein, MacroProtein)
             if (goalCarbs > 0) GoalBar("Carb", carb.toInt(), goalCarbs, MacroCarbs)
             if (goalFat > 0) GoalBar("Fat", fat.toInt(), goalFat, MacroFat)
@@ -289,7 +289,7 @@ private fun GoalBar(label: String, current: Int, goal: Int, color: Color) {
             progress = { progress },
             modifier = Modifier
                 .weight(1f)
-                .height(5.dp),
+                .height(6.dp),
             color = if (overGoal) ErrorRed else color,
             trackColor = DarkSurfaceVariant
         )
@@ -411,7 +411,7 @@ private fun DailyTotalsBar(totals: DailyTotalsCalculator.DailyTotals) {
                 }
                 is DailyTotalsCalculator.DailyTotals.Exact -> {
                     val t = totals.totals
-                    MacroTotalItem(label = "Cal", value = "${t.calories.toInt()}")
+                    MacroTotalItem(label = "Cal", value = "${t.calories.toInt()}", color = MacroCalories)
                     MacroTotalItem(label = "Protein", value = "${t.proteinGrams.toInt()}g", color = MacroProtein)
                     MacroTotalItem(label = "Carbs", value = "${t.carbsGrams.toInt()}g", color = MacroCarbs)
                     MacroTotalItem(label = "Fat", value = "${t.fatGrams.toInt()}g", color = MacroFat)
@@ -602,11 +602,12 @@ private fun FoodLogEntryRow(
 ) {
     Surface(
         color = DarkSurface,
+        shape = RoundedCornerShape(8.dp),
+        shadowElevation = 1.dp,
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onTap)
             .padding(horizontal = 12.dp, vertical = 3.dp)
-            .clip(RoundedCornerShape(8.dp))
     ) {
         Row(
             modifier = Modifier
@@ -644,7 +645,7 @@ private fun FoodLogEntryRow(
                     text = buildCalorieLabel(entry),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (entry.isEstimated) EstimatedColor else TextPrimary
+                    color = if (entry.isEstimated) EstimatedColor else MacroCalories
                 )
                 Text(
                     text = buildMacroLabel(entry),

@@ -131,9 +131,9 @@ private fun AddOptionCard(
     Surface(
         color = DarkSurface,
         shape = RoundedCornerShape(12.dp),
+        shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
     ) {
         Row(

@@ -140,7 +140,7 @@ fun NutritionLabelScanScreen(
                         )
                         Button(
                             onClick = { cameraPermission.launchPermissionRequest() },
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.Black)
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.White)
                         ) { Text("Grant Permission") }
                     }
                 }
@@ -496,7 +496,7 @@ private fun CropScreen(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 24.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.Black),
+            colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.White),
             shape = RoundedCornerShape(10.dp)
         ) {
             Icon(Icons.Filled.DocumentScanner, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -566,7 +566,7 @@ private fun ReviewForm(
         Button(
             onClick = onSaveAndAdd,
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.Black),
+            colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.White),
             shape = RoundedCornerShape(10.dp)
         ) {
             Icon(Icons.Filled.Save, contentDescription = null, modifier = Modifier.size(18.dp))
