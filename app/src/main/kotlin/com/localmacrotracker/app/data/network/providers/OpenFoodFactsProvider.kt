@@ -47,17 +47,35 @@ class OpenFoodFactsProvider @Inject constructor(
         val nm = product.nutriments ?: return null
 
         // Prefer per-serving values, fall back to per-100g
-        val calories = nm.caloriesPerServing ?: nm.caloriesPer100g ?: return null
-        val protein = nm.proteinPerServing ?: nm.proteinPer100g ?: 0.0
-        val carbs = nm.carbsPerServing ?: nm.carbsPer100g ?: 0.0
-        val fat = nm.fatPerServing ?: nm.fatPer100g ?: 0.0
+        var calories = nm.caloriesPerServing ?: nm.caloriesPer100g ?: return null
+        var protein = nm.proteinPerServing ?: nm.proteinPer100g ?: 0.0
+        var carbs = nm.carbsPerServing ?: nm.carbsPer100g ?: 0.0
+        var fat = nm.fatPerServing ?: nm.fatPer100g ?: 0.0
 
-        val usesPer100g = nm.caloriesPerServing == null
+        var usesPer100g = nm.caloriesPerServing == null
+
+        // Per-100g data but a declared serving size (e.g. "30 g" or "2 cookies (28 g)"):
+        // scale macros to the actual serving so users see per-serving values.
+        var servingGrams: Double? = null
+        var per100gScale = 1.0
+        if (usesPer100g) {
+            servingGrams = parseServingGrams(product.servingSize)
+            if (servingGrams != null && servingGrams > 0) {
+                per100gScale = servingGrams / 100.0
+                calories *= per100gScale
+                protein *= per100gScale
+                carbs *= per100gScale
+                fat *= per100gScale
+                usesPer100g = false
+            }
+        }
 
         val nutrients = buildList {
-            (nm.fiberPerServing ?: nm.fiberPer100g)?.let { add(NutrientInfo("FIBTG", "Fiber", it, "g")) }
+            (nm.fiberPerServing ?: nm.fiberPer100g?.times(per100gScale))
+                ?.let { add(NutrientInfo("FIBTG", "Fiber", it, "g")) }
             (nm.sugarsPerServing)?.let { add(NutrientInfo("SUGAR", "Sugar", it, "g")) }
-            (nm.sodiumPerServing ?: nm.sodiumPer100g)?.let { add(NutrientInfo("NA", "Sodium", it * 1000, "mg")) }
+            (nm.sodiumPerServing ?: nm.sodiumPer100g?.times(per100gScale))
+                ?.let { add(NutrientInfo("NA", "Sodium", it * 1000, "mg")) }
         }
 
         val brand = product.brands?.split(",")?.firstOrNull()?.trim()
@@ -70,7 +88,7 @@ class OpenFoodFactsProvider @Inject constructor(
             barcode = barcode,
             sourceType = if (barcode != null) SourceType.BARCODE else SourceType.OPEN_FOOD_FACTS,
             servingText = if (usesPer100g) "100g" else product.servingSize ?: "1 serving",
-            servingWeightGrams = if (usesPer100g) 100.0 else null,
+            servingWeightGrams = if (usesPer100g) 100.0 else servingGrams,
             calories = calories,
             proteinGrams = protein,
             carbsGrams = carbs,
@@ -78,5 +96,16 @@ class OpenFoodFactsProvider @Inject constructor(
             exactnessType = ExactnessType.EXACT,
             nutrients = nutrients
         )
+    }
+
+    companion object {
+        private val SERVING_GRAMS_REGEX = Regex("""(\d+(?:[.,]\d+)?)\s*g""", RegexOption.IGNORE_CASE)
+
+        /** Extracts gram weight from serving strings like "30 g", "30g", or "2 cookies (28 g)". */
+        fun parseServingGrams(servingSize: String?): Double? {
+            if (servingSize.isNullOrBlank()) return null
+            val match = SERVING_GRAMS_REGEX.find(servingSize) ?: return null
+            return match.groupValues[1].replace(',', '.').toDoubleOrNull()
+        }
     }
 }

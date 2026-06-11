@@ -19,6 +19,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
@@ -56,7 +57,7 @@ class FoodSearchViewModel @Inject constructor(
     private var searchJob: Job? = null
 
     fun onQueryChanged(query: String) {
-        _state.value = _state.value.copy(query = query, error = null)
+        _state.update { it.copy(query = query, error = null) }
         searchJob?.cancel()
         if (query.isBlank()) {
             _state.value = SearchState()
@@ -64,20 +65,22 @@ class FoodSearchViewModel @Inject constructor(
         }
         searchJob = viewModelScope.launch {
             delay(300L)
-            _state.value = _state.value.copy(isLoadingLocal = true, isLoadingRemote = true)
+            _state.update { it.copy(isLoadingLocal = true, isLoadingRemote = true) }
 
             launch {
                 val local = try { localProvider.search(query) } catch (_: Exception) { emptyList() }
-                _state.value = _state.value.copy(localResults = local, isLoadingLocal = false)
+                _state.update { it.copy(localResults = local, isLoadingLocal = false) }
             }
 
             launch {
                 val usda = try { usdaProvider.search(query) } catch (_: Exception) { emptyList() }
                 val off = try { offProvider.search(query) } catch (_: Exception) { emptyList() }
-                _state.value = _state.value.copy(
-                    remoteResults = (usda + off).distinctBy { it.id },
-                    isLoadingRemote = false
-                )
+                _state.update {
+                    it.copy(
+                        remoteResults = (usda + off).distinctBy { c -> c.id },
+                        isLoadingRemote = false
+                    )
+                }
             }
         }
     }

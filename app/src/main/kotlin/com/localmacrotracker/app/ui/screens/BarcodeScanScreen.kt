@@ -20,7 +20,9 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size as ComposeSize
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +43,7 @@ import com.localmacrotracker.app.ui.theme.*
 import com.localmacrotracker.app.ui.viewmodel.BarcodeScanViewModel
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -166,6 +169,7 @@ fun BarcodeScanScreen(
     }
 }
 
+@androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
 @Composable
 private fun BarcodeCameraPreview(
     onBarcodeDetected: (Barcode) -> Unit
@@ -175,7 +179,8 @@ private fun BarcodeCameraPreview(
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
     val executor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
     val barcodeScanner = remember { BarcodeScanning.getClient() }
-    var lastScannedValue by remember { mutableStateOf("") }
+    // AtomicReference: written from the camera executor thread, not the UI thread
+    val lastScannedRef = remember { AtomicReference("") }
 
     AndroidView(
         factory = { ctx ->
@@ -191,27 +196,7 @@ private fun BarcodeCameraPreview(
                     .build()
                     .also { analysis ->
                         analysis.setAnalyzer(executor) { imageProxy ->
-                            @androidx.camera.core.ExperimentalGetImage
-                            val mediaImage = imageProxy.image
-                            if (mediaImage != null) {
-                                val image = InputImage.fromMediaImage(
-                                    mediaImage,
-                                    imageProxy.imageInfo.rotationDegrees
-                                )
-                                barcodeScanner.process(image)
-                                    .addOnSuccessListener { barcodes ->
-                                        barcodes.firstOrNull()?.let { barcode ->
-                                            val raw = barcode.rawValue ?: return@addOnSuccessListener
-                                            if (raw != lastScannedValue) {
-                                                lastScannedValue = raw
-                                                onBarcodeDetected(barcode)
-                                            }
-                                        }
-                                    }
-                                    .addOnCompleteListener { imageProxy.close() }
-                            } else {
-                                imageProxy.close()
-                            }
+                            processBarcodeFrame(imageProxy, barcodeScanner, lastScannedRef, onBarcodeDetected)
                         }
                     }
 
@@ -233,9 +218,42 @@ private fun BarcodeCameraPreview(
     )
 }
 
+// @ExperimentalGetImage must annotate a function, not a local variable —
+// extracted from the analyzer lambda so the opt-in applies correctly.
+@androidx.camera.core.ExperimentalGetImage
+private fun processBarcodeFrame(
+    imageProxy: ImageProxy,
+    barcodeScanner: com.google.mlkit.vision.barcode.BarcodeScanner,
+    lastScannedRef: AtomicReference<String>,
+    onBarcodeDetected: (Barcode) -> Unit
+) {
+    val mediaImage = imageProxy.image
+    if (mediaImage != null) {
+        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+        barcodeScanner.process(image)
+            .addOnSuccessListener { barcodes ->
+                barcodes.firstOrNull()?.let { barcode ->
+                    val raw = barcode.rawValue ?: return@addOnSuccessListener
+                    if (lastScannedRef.getAndSet(raw) != raw) {
+                        onBarcodeDetected(barcode)
+                    }
+                }
+            }
+            .addOnCompleteListener { imageProxy.close() }
+    } else {
+        imageProxy.close()
+    }
+}
+
 @Composable
 private fun ScanOverlay() {
-    Canvas(modifier = Modifier.fillMaxSize()) {
+    // Offscreen compositing required for BlendMode.Clear to punch a transparent
+    // hole; without it the scan window renders black on many devices.
+    Canvas(
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    ) {
         val scanWidth = size.width * 0.7f
         val scanHeight = scanWidth * 0.5f
         val left = (size.width - scanWidth) / 2f

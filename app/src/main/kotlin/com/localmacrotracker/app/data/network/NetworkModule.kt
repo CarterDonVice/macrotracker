@@ -56,7 +56,16 @@ object NetworkModule {
     fun provideOffRetrofit(client: OkHttpClient): Retrofit =
         Retrofit.Builder()
             .baseUrl("https://world.openfoodfacts.org/")
-            .client(client)
+            // OFF API guidelines require an identifying User-Agent
+            .client(client.newBuilder()
+                .addInterceptor { chain ->
+                    chain.proceed(
+                        chain.request().newBuilder()
+                            .header("User-Agent", "LocalMacroTracker/1.0 (Android)")
+                            .build()
+                    )
+                }
+                .build())
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
 

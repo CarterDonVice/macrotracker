@@ -517,6 +517,13 @@ private fun ReviewForm(
 ) {
     val scrollState = rememberScrollState()
 
+    val isComplete = displayName.isNotBlank() &&
+        draft.servingText.isNotBlank() &&
+        draft.calories.toDoubleOrNull() != null &&
+        draft.protein.toDoubleOrNull() != null &&
+        draft.carbs.toDoubleOrNull() != null &&
+        draft.fat.toDoubleOrNull() != null
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -563,8 +570,17 @@ private fun ReviewForm(
 
         Spacer(Modifier.height(8.dp))
 
+        if (!isComplete) {
+            Text(
+                "Fill in all fields with valid numbers before saving.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+
         Button(
             onClick = onSaveAndAdd,
+            enabled = isComplete,
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.White),
             shape = RoundedCornerShape(10.dp)
@@ -576,6 +592,7 @@ private fun ReviewForm(
 
         OutlinedButton(
             onClick = onAddWithoutSaving,
+            enabled = isComplete,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(10.dp)
         ) {

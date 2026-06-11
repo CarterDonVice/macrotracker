@@ -25,7 +25,6 @@ class AppPreferences @Inject constructor(
     companion object {
         private val KEY_USDA_API_KEY = stringPreferencesKey("usda_api_key")
         private val KEY_ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
-        private val KEY_OFF_USER_AGENT = stringPreferencesKey("off_user_agent")
         private val KEY_GOAL_CALORIES = intPreferencesKey("goal_calories")
         private val KEY_GOAL_PROTEIN = intPreferencesKey("goal_protein")
         private val KEY_GOAL_CARBS = intPreferencesKey("goal_carbs")
@@ -34,11 +33,9 @@ class AppPreferences @Inject constructor(
 
     val usdaApiKey: Flow<String?> = store.data.map { it[KEY_USDA_API_KEY] }
     val isOnboardingComplete: Flow<Boolean> = store.data.map { it[KEY_ONBOARDING_COMPLETE] ?: false }
-    val offUserAgent: Flow<String?> = store.data.map { it[KEY_OFF_USER_AGENT] }
 
     suspend fun setUsdaApiKey(key: String) = store.edit { it[KEY_USDA_API_KEY] = key }
     suspend fun setOnboardingComplete() = store.edit { it[KEY_ONBOARDING_COMPLETE] = true }
-    suspend fun setOffUserAgent(value: String) = store.edit { it[KEY_OFF_USER_AGENT] = value }
 
     val goalCalories: Flow<Int> = store.data.map { it[KEY_GOAL_CALORIES] ?: 0 }
     val goalProtein: Flow<Int> = store.data.map { it[KEY_GOAL_PROTEIN] ?: 0 }

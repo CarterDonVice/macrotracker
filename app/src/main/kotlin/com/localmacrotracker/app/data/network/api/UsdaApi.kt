@@ -6,7 +6,7 @@ import retrofit2.http.GET
 import retrofit2.http.Query
 
 interface UsdaApi {
-    @GET("v1/foods/search")
+    @GET("fdc/v1/foods/search")
     suspend fun searchFoods(
         @Query("query") query: String,
         @Query("api_key") apiKey: String,
