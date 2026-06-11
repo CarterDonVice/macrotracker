@@ -27,7 +27,6 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val usdaKey by viewModel.usdaKey.collectAsStateWithLifecycle()
-    val claudeKey by viewModel.claudeKey.collectAsStateWithLifecycle()
     val goalCalories by viewModel.goalCalories.collectAsStateWithLifecycle()
     val goalProtein by viewModel.goalProtein.collectAsStateWithLifecycle()
     val goalCarbs by viewModel.goalCarbs.collectAsStateWithLifecycle()
@@ -35,8 +34,6 @@ fun SettingsScreen(
 
     var keyInput by remember(usdaKey) { mutableStateOf(usdaKey) }
     var keyVisible by remember { mutableStateOf(false) }
-    var claudeKeyInput by remember(claudeKey) { mutableStateOf(claudeKey) }
-    var claudeKeyVisible by remember { mutableStateOf(false) }
     var calInput by remember(goalCalories) { mutableStateOf(if (goalCalories > 0) goalCalories.toString() else "") }
     var proInput by remember(goalProtein) { mutableStateOf(if (goalProtein > 0) goalProtein.toString() else "") }
     var carbInput by remember(goalCarbs) { mutableStateOf(if (goalCarbs > 0) goalCarbs.toString() else "") }
@@ -66,33 +63,6 @@ fun SettingsScreen(
 
             // ── API Keys ─────────────────────────────────────────────────
             SettingsSection("API Keys") {
-                // Claude API key
-                OutlinedTextField(
-                    value = claudeKeyInput,
-                    onValueChange = { claudeKeyInput = it },
-                    label = { Text("Claude API Key (Anthropic)") },
-                    placeholder = { Text("sk-ant-api03-…") },
-                    visualTransformation = if (claudeKeyVisible) VisualTransformation.None
-                        else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { claudeKeyVisible = !claudeKeyVisible }) {
-                            Icon(
-                                if (claudeKeyVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                if (claudeKeyVisible) "Hide key" else "Show key"
-                            )
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                Button(
-                    onClick = { viewModel.saveClaudeKey(claudeKeyInput) },
-                    enabled = claudeKeyInput != claudeKey
-                ) { Text("Save Claude Key") }
-
-                Spacer(Modifier.height(8.dp))
-
                 // USDA API key
                 OutlinedTextField(
                     value = keyInput,
@@ -118,7 +88,7 @@ fun SettingsScreen(
                     enabled = keyInput != usdaKey
                 ) { Text("Save USDA Key") }
                 Text(
-                    "Keys are stored locally on this device.",
+                    "Keys are stored locally on this device. A USDA key enables database food search.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -159,7 +129,7 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    "Local-first. No backend. No cloud LLM. No ads.",
+                    "Local-first. No backend. No cloud. No ads.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -203,4 +173,3 @@ private fun SettingsSection(
         }
     }
 }
-

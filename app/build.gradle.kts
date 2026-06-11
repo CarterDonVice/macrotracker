@@ -1,5 +1,3 @@
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -7,11 +5,6 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
-}
-
-val localProps = Properties().apply {
-    val f = rootProject.file("local.properties")
-    if (f.exists()) load(f.inputStream())
 }
 
 android {
@@ -26,12 +19,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        buildConfigField(
-            "String",
-            "DEFAULT_CLAUDE_API_KEY",
-            "\"${localProps["claude.api.key"] ?: ""}\""
-        )
 
         // Room schema export for migration tracking
         ksp {
@@ -124,9 +111,6 @@ dependencies {
 
     // DataStore for preferences
     implementation(libs.datastore.preferences)
-
-    // HTML parsing
-    implementation(libs.jsoup)
 
     // Image loading
     implementation(libs.coil.compose)

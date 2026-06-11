@@ -18,9 +18,9 @@ sealed class Screen(val route: String) {
         fun routeFor(mealSection: String, logDate: String) =
             "saved_foods_search/$mealSection/$logDate"
     }
-    object LabelessFoodEntry : Screen("labeless_food/{meal_section}/{log_date}") {
+    object FoodSearch : Screen("food_search/{meal_section}/{log_date}") {
         fun routeFor(mealSection: String, logDate: String) =
-            "labeless_food/$mealSection/$logDate"
+            "food_search/$mealSection/$logDate"
     }
     object ManualFoodEntry : Screen("manual_food/{meal_section}/{log_date}") {
         fun routeFor(mealSection: String, logDate: String) =
@@ -96,8 +96,8 @@ fun AppNavigation() {
                 onSavedFood = { ms, date ->
                     navController.navigate(Screen.SavedFoodsSearch.routeFor(ms, date))
                 },
-                onLabelessFood = { ms, date ->
-                    navController.navigate(Screen.LabelessFoodEntry.routeFor(ms, date))
+                onFoodSearch = { ms, date ->
+                    navController.navigate(Screen.FoodSearch.routeFor(ms, date))
                 },
                 onManualEntry = { ms, date ->
                     navController.navigate(Screen.ManualFoodEntry.routeFor(ms, date))
@@ -134,7 +134,7 @@ fun AppNavigation() {
         }
 
         composable(
-            route = Screen.LabelessFoodEntry.route,
+            route = Screen.FoodSearch.route,
             arguments = listOf(
                 navArgument("meal_section") { type = NavType.StringType },
                 navArgument("log_date") { type = NavType.StringType }
@@ -142,7 +142,7 @@ fun AppNavigation() {
         ) { backStack ->
             val ms = backStack.arguments?.getString("meal_section") ?: "BREAKFAST"
             val date = backStack.arguments?.getString("log_date") ?: ""
-            LabelessFoodEntryScreen(
+            FoodSearchScreen(
                 mealSection = ms,
                 logDate = date,
                 onDone = { navController.popBackStack(Screen.DailyLog.route, false) },

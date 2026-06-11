@@ -6,7 +6,6 @@ import com.localmacrotracker.app.data.model.FoodCandidate
 import com.localmacrotracker.app.data.model.FoodCategory
 import com.localmacrotracker.app.data.model.SourceType
 import com.localmacrotracker.app.data.network.FoodLookupProvider
-import com.localmacrotracker.app.llm.model.PlannerItem
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,7 +17,7 @@ class LocalSavedFoodProvider @Inject constructor(
 
     override val providerName = "saved_foods"
 
-    override suspend fun search(query: String, plannerItem: PlannerItem?): List<FoodCandidate> {
+    override suspend fun search(query: String): List<FoodCandidate> {
         if (query.isBlank()) return emptyList()
         val results = savedFoodDao.searchFoods(query.trim()).first()
         return results.map { entity ->

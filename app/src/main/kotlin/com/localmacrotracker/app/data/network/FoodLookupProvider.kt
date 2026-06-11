@@ -1,12 +1,11 @@
 package com.localmacrotracker.app.data.network
 
 import com.localmacrotracker.app.data.model.FoodCandidate
-import com.localmacrotracker.app.llm.model.PlannerItem
 
 /** Common interface for any source that can return food candidates. */
 interface FoodLookupProvider {
     val providerName: String
-    suspend fun search(query: String, plannerItem: PlannerItem? = null): List<FoodCandidate>
+    suspend fun search(query: String): List<FoodCandidate>
 }
 
 /** Provider that can look up a specific barcode. */

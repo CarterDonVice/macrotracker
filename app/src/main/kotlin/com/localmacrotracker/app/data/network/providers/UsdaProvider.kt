@@ -10,7 +10,6 @@ import com.localmacrotracker.app.data.network.FoodLookupProvider
 import com.localmacrotracker.app.data.network.api.UsdaApi
 import com.localmacrotracker.app.data.network.api.UsdaFood
 import com.localmacrotracker.app.data.prefs.AppPreferences
-import com.localmacrotracker.app.llm.model.PlannerItem
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -34,7 +33,7 @@ class UsdaProvider @Inject constructor(
 
     override val providerName = "usda"
 
-    override suspend fun search(query: String, plannerItem: PlannerItem?): List<FoodCandidate> {
+    override suspend fun search(query: String): List<FoodCandidate> {
         val apiKey = prefs.usdaApiKey.first()
         if (apiKey.isNullOrBlank()) {
             Log.w(TAG, "USDA API key not set")

@@ -1,9 +1,0 @@
-Output ONLY a JSON object, no explanation. Estimate realistic calorie and macro ranges for the food.
-
-Example for "1 medium apple":
-{"version":1,"item_index":0,"calories_min":72,"calories_max":95,"protein_min_g":0.3,"protein_max_g":0.5,"carbs_min_g":19.0,"carbs_max_g":25.0,"fat_min_g":0.1,"fat_max_g":0.3,"range_reason":"source_uncertain"}
-
-Rules: use realistic nutrition values; keep ranges tight; min must be <= max; all values must be non-negative.
-
-FOOD: {{ITEM_CONTEXT}}
-REASON: {{REASON}}

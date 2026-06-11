@@ -1,9 +1,0 @@
-Output ONLY a JSON object, no explanation. Pick the best food match from the candidates list.
-
-Example:
-{"version":1,"item_index":0,"selected_candidate_id":"usda-789","selection_type":"exact","requires_serving_math":false,"portion_factor":1.0,"final_display_name":"Scrambled Eggs"}
-
-Rules: prefer isLocalSaved:true candidates; prefer USDA/branded over estimates; use selection_type "exact" for precise matches, "estimated" for approximate; use "no_match" with empty selected_candidate_id if nothing fits; set portion_factor to the scaling ratio if the quantity differs from the source serving (e.g. 0.5 for half a serving).
-
-ITEM: {{ITEM_CONTEXT}}
-CANDIDATES: {{CANDIDATES_JSON}}

@@ -3,7 +3,6 @@ package com.localmacrotracker.app.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.localmacrotracker.app.data.prefs.AppPreferences
-import com.localmacrotracker.app.data.prefs.AppPreferences.Companion.DEFAULT_CLAUDE_API_KEY
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -33,9 +32,6 @@ class SettingsViewModel @Inject constructor(
         .map { it ?: "" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
-    val claudeKey: StateFlow<String> = prefs.claudeApiKey
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DEFAULT_CLAUDE_API_KEY)
-
     fun completeOnboarding() {
         viewModelScope.launch { prefs.setOnboardingComplete() }
     }
@@ -46,9 +42,5 @@ class SettingsViewModel @Inject constructor(
 
     fun saveUsdaKey(key: String) {
         viewModelScope.launch { prefs.setUsdaApiKey(key) }
-    }
-
-    fun saveClaudeKey(key: String) {
-        viewModelScope.launch { prefs.setClaudeApiKey(key) }
     }
 }

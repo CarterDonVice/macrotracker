@@ -24,7 +24,7 @@ fun AddEntryChooserScreen(
     mealSection: String,
     logDate: String,
     onSavedFood: (mealSection: String, logDate: String) -> Unit,
-    onLabelessFood: (mealSection: String, logDate: String) -> Unit,
+    onFoodSearch: (mealSection: String, logDate: String) -> Unit,
     onManualEntry: (mealSection: String, logDate: String) -> Unit,
     onRecipe: (mealSection: String, logDate: String) -> Unit,
     onBarcode: (mealSection: String, logDate: String) -> Unit,
@@ -78,11 +78,11 @@ fun AddEntryChooserScreen(
             )
 
             AddOptionCard(
-                icon = Icons.Outlined.Psychology,
-                title = "Labeless Food",
-                description = "Describe a food by name or voice. The AI model estimates the nutrition.",
+                icon = Icons.Outlined.Search,
+                title = "Search Foods",
+                description = "Search the food database and your saved library by name or keyword.",
                 tint = EstimatedColor,
-                onClick = { onLabelessFood(mealSection, logDate) }
+                onClick = { onFoodSearch(mealSection, logDate) }
             )
 
             AddOptionCard(

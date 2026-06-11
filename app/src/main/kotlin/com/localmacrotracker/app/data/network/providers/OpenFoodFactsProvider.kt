@@ -9,7 +9,6 @@ import com.localmacrotracker.app.data.network.BarcodeLookupProvider
 import com.localmacrotracker.app.data.network.FoodLookupProvider
 import com.localmacrotracker.app.data.network.api.OFFProduct
 import com.localmacrotracker.app.data.network.api.OpenFoodFactsApi
-import com.localmacrotracker.app.llm.model.PlannerItem
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,7 +21,7 @@ class OpenFoodFactsProvider @Inject constructor(
 
     override val providerName = "open_food_facts"
 
-    override suspend fun search(query: String, plannerItem: PlannerItem?): List<FoodCandidate> {
+    override suspend fun search(query: String): List<FoodCandidate> {
         return try {
             val response = api.searchProducts(query = query)
             response.products.mapNotNull { product -> mapToCandidate(product, source = "search") }
