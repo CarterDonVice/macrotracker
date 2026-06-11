@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Local Macro Tracker — UI Preview</title>
+<style>
+/* ─── Reset ────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+button { border: none; background: transparent; cursor: pointer; font-family: inherit; }
+input { font-family: inherit; }
+
+/* ─── Page layout ───────────────────────────────────────────────────── */
+body {
+  background: linear-gradient(135deg, #0f1923 0%, #1a2533 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 16px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+}
+.page-label {
+  color: rgba(255,255,255,0.4);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+.page-label span { color: rgba(255,255,255,0.8); }
+
+/* ─── Phone shell ───────────────────────────────────────────────────── */
+.phone {
+  width: 390px;
+  min-height: 844px;
+  background: #F4F1EC;
+  border-radius: 44px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 10px #1C2028,
+    0 0 0 12px #2a2e38,
+    0 60px 120px rgba(0,0,0,0.7),
+    inset 0 0 0 1px rgba(255,255,255,0.05);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ─── Status bar ────────────────────────────────────────────────────── */
+.status-bar {
+  background: #2C4A3E;
+  padding: 14px 28px 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #d8e8d0;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.status-right { display: flex; gap: 6px; align-items: center; font-size: 11px; }
+
+/* ─── Screen system ─────────────────────────────────────────────────── */
+.screen { display: none; flex-direction: column; flex: 1; background: #F4F1EC; }
+.screen.active { display: flex; }
+
+/* ─── Top App Bar ───────────────────────────────────────────────────── */
+.top-bar {
+  background: #FEFCF9;
+  padding: 12px 4px 12px 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0.5px 0 #D8D3CB;
+  flex-shrink: 0;
+  min-height: 58px;
+}
+.top-bar .title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1C2018;
+  flex: 1;
+  padding: 0 4px;
+}
+.top-bar .subtitle {
+  font-size: 12px;
+  font-weight: 400;
+  color: #6B7265;
+  margin-top: 1px;
+}
+.icon-btn {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #6B7265;
+  font-size: 20px;
+  transition: background 0.12s;
+  flex-shrink: 0;
+}
+.icon-btn:hover { background: rgba(0,0,0,0.06); }
+.icon-btn:active { background: rgba(0,0,0,0.12); transform: scale(0.96); }
+.date-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+}
+.date-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1C2018;
+  flex: 1;
+  text-align: center;
+}
+
+/* ─── Scrollable content ────────────────────────────────────────────── */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+.content::-webkit-scrollbar { width: 3px; }
+.content::-webkit-scrollbar-thumb { background: #D8D3CB; border-radius: 2px; }
+
+/* ─── Cards ─────────────────────────────────────────────────────────── */
+.card {
+  background: #FEFCF9;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 0 0 0.5px rgba(0,0,0,0.04);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.card:active { transform: scale(0.97); }
+.pressable { cursor: pointer; }
+.pressable:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.10); }
+
+/* ─── Daily summary card ────────────────────────────────────────────── */
+.summary-card {
+  padding: 20px 16px;
+}
+.summary-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.ring-wrap { flex-shrink: 0; }
+.macros-col { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+
+/* SVG ring */
+.ring-svg { display: block; }
+.ring-track { fill: none; stroke: #EDE9E2; stroke-width: 11; }
+.ring-progress {
+  fill: none;
+  stroke: #2C4A3E;
+  stroke-width: 11;
+  stroke-linecap: round;
+  transform-origin: center;
+  transform: rotate(-90deg);
+  transition: stroke-dasharray 0.8s cubic-bezier(0.4,0,0.2,1);
+}
+.ring-progress.over { stroke: #DC2626; }
+.ring-center { text-anchor: middle; dominant-baseline: middle; }
+.ring-kcal { font-size: 22px; font-weight: 700; fill: #1C2018; }
+.ring-kcal.over { fill: #DC2626; }
+.ring-label { font-size: 10px; fill: #6B7265; }
+.ring-label.over { fill: #DC2626; }
+
+/* Macro bars */
+.macro-bar-row { display: flex; flex-direction: column; gap: 3px; }
+.macro-bar-header { display: flex; justify-content: space-between; align-items: center; }
+.macro-bar-label { font-size: 11px; font-weight: 500; color: #6B7265; }
+.macro-bar-value { font-size: 10px; color: #6B7265; }
+.macro-bar-value.over { color: #DC2626; }
+.bar-track {
+  height: 7px;
+  background: #EDE9E2;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ─── Goal setup CTA ─────────────────────────────────────────────────── */
+.goal-cta {
+  text-align: center;
+  padding: 12px 0 4px;
+  border-top: 1px solid #EDE9E2;
+  margin-top: 8px;
+}
+.goal-cta p { font-size: 12px; color: #6B7265; margin-bottom: 6px; }
+.btn-outline {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2C4A3E;
+  border: 1.5px solid #2C4A3E;
+  border-radius: 20px;
+  padding: 5px 16px;
+  transition: background 0.12s;
+}
+.btn-outline:hover { background: rgba(44,74,62,0.08); }
+
+/* ─── Meal cards ─────────────────────────────────────────────────────── */
+.meal-card { padding: 0; overflow: hidden; }
+.meal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 12px;
+}
+.meal-icon-wrap {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.meal-title { font-size: 15px; font-weight: 600; color: #1C2018; }
+.meal-kcal { font-size: 12px; color: #6B7265; margin-top: 1px; }
+.meal-add-btn {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 20px;
+  padding: 6px 14px;
+  transition: background 0.12s, transform 0.1s;
+}
+.meal-add-btn:active { transform: scale(0.96); }
+.meal-divider { height: 0.5px; background: #EDE9E2; margin: 0 16px; }
+
+.food-entry {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  gap: 10px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.food-entry:hover { background: rgba(0,0,0,0.025); }
+.food-entry-name { font-size: 13px; font-weight: 500; color: #1C2018; flex: 1; }
+.food-entry-sub { font-size: 11px; color: #6B7265; }
+.food-kcal { font-size: 13px; font-weight: 600; color: #C2430E; flex-shrink: 0; }
+
+.meal-empty {
+  padding: 12px 16px 14px;
+  font-size: 12px;
+  color: #6B7265;
+  font-style: italic;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.meal-empty:hover { background: rgba(0,0,0,0.025); }
+
+/* ─── Add Entry Chooser ──────────────────────────────────────────────── */
+.chooser-hint { font-size: 13px; color: #6B7265; padding: 8px 0 4px; }
+.option-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+}
+.option-icon-wrap {
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.option-text { flex: 1; }
+.option-title { font-size: 14px; font-weight: 600; color: #1C2018; }
+.option-desc { font-size: 11px; color: #6B7265; margin-top: 2px; line-height: 1.4; }
+.option-chevron { font-size: 18px; color: #6B7265; }
+
+/* ─── Food Search ────────────────────────────────────────────────────── */
+.search-wrap {
+  background: #FEFCF9;
+  border-bottom: 0.5px solid #D8D3CB;
+  padding: 10px 16px 10px;
+}
+.search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #EDE9E2;
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+.search-input-row span { font-size: 16px; color: #6B7265; }
+.search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: #1C2018;
+}
+.search-input::placeholder { color: #9BA5A0; }
+.clear-btn { font-size: 16px; color: #6B7265; padding: 2px; }
+
+.section-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6B7265;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 8px 0 6px;
+}
+.result-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.result-name { font-size: 14px; font-weight: 500; color: #1C2018; }
+.result-sub { font-size: 11px; color: #6B7265; margin-top: 1px; }
+.result-kcal { font-size: 13px; font-weight: 700; color: #C2430E; flex-shrink: 0; }
+.result-add-btn {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: rgba(44,74,62,0.12);
+  color: #2C4A3E;
+  font-size: 20px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.12s;
+}
+.result-add-btn:hover { background: rgba(44,74,62,0.2); }
+.macro-chips { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; }
+.chip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+.chip-p { background: rgba(29,78,216,0.12); color: #1D4ED8; }
+.chip-c { background: rgba(180,83,9,0.12); color: #B45309; }
+.chip-f { background: rgba(109,40,217,0.12); color: #6D28D9; }
+
+.loading-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 16px 0;
+  color: #6B7265;
+  font-size: 13px;
+}
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid #EDE9E2;
+  border-top-color: #2C4A3E;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Settings ───────────────────────────────────────────────────────── */
+.settings-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2C4A3E;
+  margin-bottom: 8px;
+  margin-top: 4px;
+}
+.settings-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.field-label { font-size: 12px; color: #6B7265; margin-bottom: 4px; }
+.outlined-field {
+  border: 1.5px solid #D8D3CB;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #1C2018;
+  background: #FEFCF9;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.outlined-field:focus { border-color: #2C4A3E; }
+.field-hint { font-size: 11px; color: #6B7265; line-height: 1.4; }
+.btn-primary {
+  background: #2C4A3E;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 12px 20px;
+  width: 100%;
+  transition: background 0.12s, transform 0.1s;
+}
+.btn-primary:hover { background: #1C3228; }
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { background: #EDE9E2; color: #9BA5A0; cursor: default; }
+.goals-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* ─── Bottom sheet overlay ───────────────────────────────────────────── */
+.overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 100;
+  align-items: flex-end;
+  border-radius: 44px;
+  overflow: hidden;
+}
+.overlay.open { display: flex; }
+.bottom-sheet {
+  background: #FEFCF9;
+  border-radius: 24px 24px 0 0;
+  padding: 8px 0 32px;
+  width: 100%;
+  animation: slideUp 0.28s cubic-bezier(0.4,0,0.2,1);
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.sheet-handle {
+  width: 36px; height: 4px;
+  background: #D8D3CB;
+  border-radius: 2px;
+  margin: 0 auto 16px;
+}
+.sheet-title { font-size: 16px; font-weight: 600; color: #1C2018; padding: 0 20px 4px; }
+.sheet-sub { font-size: 12px; color: #6B7265; padding: 0 20px 16px; }
+.sheet-body { padding: 0 20px; display: flex; flex-direction: column; gap: 14px; }
+.qty-row { display: flex; align-items: center; gap: 12px; }
+.qty-label { font-size: 13px; color: #6B7265; flex: 1; }
+.qty-controls { display: flex; align-items: center; gap: 8px; }
+.qty-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: #EDE9E2;
+  font-size: 20px;
+  color: #2C4A3E;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.1s;
+}
+.qty-btn:hover { background: rgba(44,74,62,0.15); }
+.qty-val { font-size: 16px; font-weight: 700; color: #1C2018; min-width: 36px; text-align: center; }
+.save-toggle { display: flex; align-items: center; gap: 10px; }
+.save-toggle label { font-size: 13px; color: #1C2018; flex: 1; }
+.toggle-switch {
+  width: 44px; height: 24px;
+  background: #EDE9E2;
+  border-radius: 12px;
+  position: relative;
+  transition: background 0.2s;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.toggle-switch.on { background: #2C4A3E; }
+.toggle-knob {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 20px; height: 20px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: left 0.2s;
+}
+.toggle-switch.on .toggle-knob { left: 22px; }
+.macro-preview { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ─── Nav helper ─────────────────────────────────────────────────────── */
+.nav-bar-spacer { height: 20px; }
+
+/* ─── Toast ──────────────────────────────────────────────────────────── */
+.toast {
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #1C2018;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 20px;
+  border-radius: 20px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 200;
+  pointer-events: none;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ─── Preview nav ────────────────────────────────────────────────────── */
+.preview-nav {
+  display: flex;
+  gap: 8px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.nav-chip {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.6);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.nav-chip:hover { background: rgba(255,255,255,0.18); color: white; }
+.nav-chip.active { background: #2C4A3E; color: white; border-color: #2C4A3E; }
+</style>
+</head>
+<body>
+
+<p class="page-label">Local Macro Tracker &nbsp;·&nbsp; <span>UI Preview</span></p>
+
+<!-- ═══════════════════════════ PHONE ═══════════════════════════════ -->
+<div class="phone" id="phone">
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <span>9:41</span>
+    <div class="status-right">
+      <span>▪▪▪▪</span>
+      <span>WiFi</span>
+      <span>🔋</span>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN: Daily Log ══════════════════════════════════════════ -->
+  <div class="screen active" id="screen-log">
+    <div class="top-bar">
+      <button class="icon-btn" onclick="showToast('Calendar')">📅</button>
+      <div class="date-nav">
+        <button class="icon-btn" onclick="shiftDate(-1)">‹</button>
+        <span class="date-text" id="date-display">Wed, Jun 11</span>
+        <button class="icon-btn" onclick="shiftDate(1)">›</button>
+      </div>
+      <button class="icon-btn" onclick="navigateTo('settings')">⚙️</button>
+    </div>
+
+    <div class="content">
+      <!-- Summary card -->
+      <div class="card summary-card">
+        <div class="summary-row">
+          <!-- Calorie ring -->
+          <div class="ring-wrap">
+            <svg class="ring-svg" width="120" height="120" viewBox="0 0 120 120">
+              <circle class="ring-track" cx="60" cy="60" r="51"/>
+              <circle class="ring-progress" id="calorie-ring" cx="60" cy="60" r="51"
+                stroke-dasharray="0 320.44" stroke-dashoffset="0"/>
+              <text class="ring-kcal" id="ring-kcal-val" x="60" y="56">650</text>
+              <text class="ring-label" id="ring-kcal-label" x="60" y="70">kcal left</text>
+            </svg>
+          </div>
+          <!-- Macro bars -->
+          <div class="macros-col">
+            <div class="macro-bar-row">
+              <div class="macro-bar-header">
+                <span class="macro-bar-label">Protein</span>
+                <span class="macro-bar-value" id="pro-val">95 / 150g</span>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill" id="pro-bar" style="width:0%;background:#1D4ED8;"></div>
+              </div>
+            </div>
+            <div class="macro-bar-row">
+              <div class="macro-bar-header">
+                <span class="macro-bar-label">Carbs</span>
+                <span class="macro-bar-value" id="carb-val">180 / 250g</span>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill" id="carb-bar" style="width:0%;background:#B45309;"></div>
+              </div>
+            </div>
+            <div class="macro-bar-row">
+              <div class="macro-bar-header">
+                <span class="macro-bar-label">Fat</span>
+                <span class="macro-bar-value" id="fat-val">42 / 70g</span>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill" id="fat-bar" style="width:0%;background:#6D28D9;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Breakfast -->
+      <div class="card meal-card">
+        <div class="meal-header">
+          <div class="meal-icon-wrap" style="background:rgba(180,83,9,0.12);">🍳</div>
+          <div>
+            <div class="meal-title">Breakfast</div>
+            <div class="meal-kcal">455 kcal</div>
+          </div>
+          <button class="meal-add-btn" style="background:rgba(180,83,9,0.12);color:#B45309;"
+            onclick="navigateTo('chooser', 'Breakfast')">+ Add</button>
+        </div>
+        <div class="meal-divider"></div>
+        <div class="food-entry" onclick="showSheet('Greek Yogurt (Plain)', 150, 15, 10, 5, '1 container (150g)')">
+          <div style="flex:1">
+            <div class="food-entry-name">Greek Yogurt (Plain)</div>
+            <div class="food-entry-sub">1 container · 150g</div>
+          </div>
+          <div style="text-align:right">
+            <div class="food-kcal">150</div>
+            <div class="food-entry-sub">kcal</div>
+          </div>
+        </div>
+        <div class="meal-divider"></div>
+        <div class="food-entry" onclick="showSheet('Banana', 105, 1, 27, 0, '1 medium (118g)')">
+          <div style="flex:1">
+            <div class="food-entry-name">Banana</div>
+            <div class="food-entry-sub">1 medium · 118g</div>
+          </div>
+          <div style="text-align:right">
+            <div class="food-kcal">105</div>
+            <div class="food-entry-sub">kcal</div>
+          </div>
+        </div>
+        <div class="meal-divider"></div>
+        <div class="food-entry" onclick="showSheet('Oatmeal (Rolled Oats)', 200, 7, 34, 4, '1 cup cooked (234g)')">
+          <div style="flex:1">
+            <div class="food-entry-name">Oatmeal</div>
+            <div class="food-entry-sub">1 cup cooked · 234g</div>
+          </div>
+          <div style="text-align:right">
+            <div class="food-kcal">200</div>
+            <div class="food-entry-sub">kcal</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lunch -->
+      <div class="card meal-card">
+        <div class="meal-header">
+          <div class="meal-icon-wrap" style="background:rgba(44,74,62,0.12);">🥗</div>
+          <div>
+            <div class="meal-title">Lunch</div>
+            <div class="meal-kcal">620 kcal</div>
+          </div>
+          <button class="meal-add-btn" style="background:rgba(44,74,62,0.12);color:#2C4A3E;"
+            onclick="navigateTo('chooser', 'Lunch')">+ Add</button>
+        </div>
+        <div class="meal-divider"></div>
+        <div class="food-entry" onclick="showSheet('Grilled Chicken Breast', 280, 52, 0, 6, '1 breast (196g)')">
+          <div style="flex:1">
+            <div class="food-entry-name">Grilled Chicken Breast</div>
+            <div class="food-entry-sub">1 breast · 196g</div>
+          </div>
+          <div style="text-align:right">
+            <div class="food-kcal">280</div>
+            <div class="food-entry-sub">kcal</div>
+          </div>
+        </div>
+        <div class="meal-divider"></div>
+        <div class="food-entry" onclick="showSheet('Brown Rice', 215, 5, 45, 2, '1 cup cooked (195g)')">
+          <div style="flex:1">
+            <div class="food-entry-name">Brown Rice</div>
+            <div class="food-entry-sub">1 cup cooked · 195g</div>
+          </div>
+          <div style="text-align:right">
+            <div class="food-kcal">215</div>
+            <div class="food-entry-sub">kcal</div>
+          </div>
+        </div>
+        <div class="meal-divider"></div>
+        <div class="food-entry" onclick="showSheet('Steamed Broccoli', 55, 4, 11, 1, '2 cups (182g)')">
+          <div style="flex:1">
+            <div class="food-entry-name">Steamed Broccoli</div>
+            <div class="food-entry-sub">2 cups · 182g</div>
+          </div>
+          <div style="text-align:right">
+            <div class="food-kcal">55</div>
+            <div class="food-entry-sub">kcal</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dinner -->
+      <div class="card meal-card">
+        <div class="meal-header">
+          <div class="meal-icon-wrap" style="background:rgba(29,78,216,0.12);">🍽</div>
+          <div>
+            <div class="meal-title">Dinner</div>
+            <div class="meal-kcal">375 kcal</div>
+          </div>
+          <button class="meal-add-btn" style="background:rgba(29,78,216,0.12);color:#1D4ED8;"
+            onclick="navigateTo('chooser', 'Dinner')">+ Add</button>
+        </div>
+        <div class="meal-divider"></div>
+        <div class="food-entry" onclick="showSheet('Salmon Fillet', 280, 38, 0, 13, '1 fillet (170g)')">
+          <div style="flex:1">
+            <div class="food-entry-name">Salmon Fillet</div>
+            <div class="food-entry-sub">1 fillet · 170g</div>
+          </div>
+          <div style="text-align:right">
+            <div class="food-kcal">280</div>
+            <div class="food-entry-sub">kcal</div>
+          </div>
+        </div>
+        <div class="meal-divider"></div>
+        <div class="food-entry" onclick="showSheet('Sweet Potato', 95, 2, 22, 0, '1 medium (130g)')">
+          <div style="flex:1">
+            <div class="food-entry-name">Sweet Potato</div>
+            <div class="food-entry-sub">1 medium · 130g</div>
+          </div>
+          <div style="text-align:right">
+            <div class="food-kcal">95</div>
+            <div class="food-entry-sub">kcal</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Snacks -->
+      <div class="card meal-card">
+        <div class="meal-header">
+          <div class="meal-icon-wrap" style="background:rgba(109,40,217,0.12);">🍎</div>
+          <div>
+            <div class="meal-title">Snacks</div>
+            <div class="meal-kcal">0 kcal</div>
+          </div>
+          <button class="meal-add-btn" style="background:rgba(109,40,217,0.12);color:#6D28D9;"
+            onclick="navigateTo('chooser', 'Snacks')">+ Add</button>
+        </div>
+        <div class="meal-divider"></div>
+        <div class="meal-empty" onclick="navigateTo('chooser', 'Snacks')">
+          Tap to add a snack…
+        </div>
+      </div>
+
+      <div class="nav-bar-spacer"></div>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN: Add Entry Chooser ════════════════════════════════════ -->
+  <div class="screen" id="screen-chooser">
+    <div class="top-bar">
+      <button class="icon-btn" onclick="navigateTo('log')">‹</button>
+      <div>
+        <div class="title">Add Food</div>
+        <div class="subtitle" id="chooser-meal-label">Breakfast</div>
+      </div>
+    </div>
+    <div class="content">
+      <p class="chooser-hint">How would you like to add food?</p>
+      <div class="card pressable" onclick="navigateTo('search')">
+        <div class="option-card">
+          <div class="option-icon-wrap" style="background:rgba(44,74,62,0.12);">🔖</div>
+          <div class="option-text">
+            <div class="option-title">Saved / Premade Food</div>
+            <div class="option-desc">Search your saved foods, premade items, and previous meal preps.</div>
+          </div>
+          <span class="option-chevron">›</span>
+        </div>
+      </div>
+      <div class="card pressable" onclick="navigateTo('search')">
+        <div class="option-card">
+          <div class="option-icon-wrap" style="background:rgba(3,105,161,0.12);">🔍</div>
+          <div class="option-text">
+            <div class="option-title">Search Foods</div>
+            <div class="option-desc">Search the food database and your saved library by name or keyword.</div>
+          </div>
+          <span class="option-chevron">›</span>
+        </div>
+      </div>
+      <div class="card pressable" onclick="showToast('Manual Entry (builds in Android Studio)')">
+        <div class="option-card">
+          <div class="option-icon-wrap" style="background:rgba(109,40,217,0.12);">✏️</div>
+          <div class="option-text">
+            <div class="option-title">Manual Entry</div>
+            <div class="option-desc">Type in a food name and enter nutrition values directly.</div>
+          </div>
+          <span class="option-chevron">›</span>
+        </div>
+      </div>
+      <div class="card pressable" onclick="showToast('Recipe builder (builds in Android Studio)')">
+        <div class="option-card">
+          <div class="option-icon-wrap" style="background:rgba(29,78,216,0.12);">📖</div>
+          <div class="option-text">
+            <div class="option-title">Recipe / Meal Prep</div>
+            <div class="option-desc">Build a recipe from ingredients and log one serving.</div>
+          </div>
+          <span class="option-chevron">›</span>
+        </div>
+      </div>
+      <div class="card pressable" onclick="showToast('Barcode scanner (requires camera on device)')">
+        <div class="option-card">
+          <div class="option-icon-wrap" style="background:rgba(180,83,9,0.12);">📷</div>
+          <div class="option-text">
+            <div class="option-title">Barcode Scan</div>
+            <div class="option-desc">Scan a product barcode to look up nutrition facts automatically.</div>
+          </div>
+          <span class="option-chevron">›</span>
+        </div>
+      </div>
+      <div class="card pressable" onclick="showToast('OCR label scanner (requires camera on device)')">
+        <div class="option-card">
+          <div class="option-icon-wrap" style="background:rgba(180,83,9,0.12);">📄</div>
+          <div class="option-text">
+            <div class="option-title">Nutrition Label Scan</div>
+            <div class="option-desc">Photograph a nutrition facts label and extract values with OCR.</div>
+          </div>
+          <span class="option-chevron">›</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN: Food Search ═══════════════════════════════════════════ -->
+  <div class="screen" id="screen-search">
+    <div class="top-bar">
+      <button class="icon-btn" onclick="navigateTo('chooser')">‹</button>
+      <span class="title">Search Foods</span>
+    </div>
+    <div class="search-wrap">
+      <div class="search-input-row">
+        <span>🔍</span>
+        <input class="search-input" id="search-input" placeholder="Search foods…" oninput="handleSearch(this.value)">
+        <button class="clear-btn" onclick="clearSearch()">✕</button>
+      </div>
+    </div>
+    <div class="content" id="search-results">
+      <!-- populated by JS -->
+    </div>
+  </div>
+
+  <!-- ══ SCREEN: Settings ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-settings">
+    <div class="top-bar">
+      <button class="icon-btn" onclick="navigateTo('log')">‹</button>
+      <span class="title">Settings</span>
+    </div>
+    <div class="content">
+      <!-- API Keys -->
+      <div>
+        <div class="settings-section-title">API Keys</div>
+        <div class="card settings-card">
+          <div>
+            <div class="field-label">USDA FoodData Central API Key</div>
+            <input class="outlined-field" type="password" placeholder="Get free key at fdc.nal.usda.gov" id="usda-key-input">
+          </div>
+          <button class="btn-primary" onclick="showToast('USDA key saved!')">Save USDA Key</button>
+          <p class="field-hint">Keys are stored locally on this device. A USDA key enables database food search.</p>
+        </div>
+      </div>
+
+      <!-- Daily Goals -->
+      <div>
+        <div class="settings-section-title">Daily Goals</div>
+        <div class="card settings-card">
+          <p class="field-hint">Set targets to see progress bars on the home screen. Leave blank to hide.</p>
+          <div>
+            <div class="field-label">Calories (kcal)</div>
+            <input class="outlined-field" type="number" placeholder="e.g. 2100" id="goal-cal" value="2100">
+          </div>
+          <div class="goals-grid">
+            <div>
+              <div class="field-label">Protein (g)</div>
+              <input class="outlined-field" type="number" placeholder="150" id="goal-pro" value="150">
+            </div>
+            <div>
+              <div class="field-label">Carbs (g)</div>
+              <input class="outlined-field" type="number" placeholder="250" id="goal-carb" value="250">
+            </div>
+          </div>
+          <div>
+            <div class="field-label">Fat (g)</div>
+            <input class="outlined-field" type="number" placeholder="70" id="goal-fat" value="70">
+          </div>
+          <button class="btn-primary" onclick="saveGoals()">Save Goals</button>
+        </div>
+      </div>
+
+      <!-- About -->
+      <div>
+        <div class="settings-section-title">About</div>
+        <div class="card settings-card">
+          <div>
+            <p style="font-size:14px;font-weight:600;color:#1C2018;">Local Macro Tracker</p>
+            <p style="font-size:12px;color:#6B7265;margin-top:4px;">Version 1.0 (1)</p>
+          </div>
+          <p class="field-hint">Local-first. No backend. No cloud. No ads.</p>
+        </div>
+      </div>
+      <div class="nav-bar-spacer"></div>
+    </div>
+  </div>
+
+  <!-- ══ BOTTOM SHEET overlay ═════════════════════════════════════════ -->
+  <div class="overlay" id="bottom-overlay" onclick="closeSheet(event)">
+    <div class="bottom-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title" id="sheet-food-name">Food Name</div>
+      <div class="sheet-sub" id="sheet-food-sub">1 serving</div>
+      <div class="sheet-body">
+        <div class="macro-preview" id="sheet-macros"></div>
+        <div class="meal-divider" style="margin:0"></div>
+        <div class="qty-row">
+          <span class="qty-label">Servings</span>
+          <div class="qty-controls">
+            <button class="qty-btn" onclick="adjustQty(-1)">−</button>
+            <span class="qty-val" id="qty-val">1</span>
+            <button class="qty-btn" onclick="adjustQty(1)">+</button>
+          </div>
+        </div>
+        <div class="save-toggle">
+          <label>Save to My Foods Library</label>
+          <div class="toggle-switch" id="save-toggle" onclick="toggleSave()">
+            <div class="toggle-knob"></div>
+          </div>
+        </div>
+        <button class="btn-primary" onclick="addToLog()">Add to Log</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+</div>
+<!-- end .phone -->
+
+<!-- Preview nav chips -->
+<div class="preview-nav">
+  <button class="nav-chip active" id="chip-log" onclick="navigateTo('log')">📋 Daily Log</button>
+  <button class="nav-chip" id="chip-chooser" onclick="navigateTo('chooser')">➕ Add Food</button>
+  <button class="nav-chip" id="chip-search" onclick="navigateTo('search')">🔍 Search</button>
+  <button class="nav-chip" id="chip-settings" onclick="navigateTo('settings')">⚙️ Settings</button>
+</div>
+
+<script>
+// ─── State ─────────────────────────────────────────────────────────────
+const CIRCUMFERENCE = 2 * Math.PI * 51; // r=51 → 320.44
+let appState = {
+  consumed: 1450, goal: 2100,
+  protein: 95, goalProtein: 150,
+  carbs: 180, goalCarbs: 250,
+  fat: 42, goalFat: 70,
+  dates: ['Mon, Jun 9','Tue, Jun 10','Wed, Jun 11','Thu, Jun 12','Fri, Jun 13'],
+  dateIdx: 2,
+  sheetFood: null,
+  qty: 1,
+  saveOn: false
+};
+
+// ─── Ring animation ────────────────────────────────────────────────────
+function updateRing() {
+  const { consumed, goal, protein, goalProtein, carbs, goalCarbs, fat, goalFat } = appState;
+  const progress = Math.min(consumed / goal, 1);
+  const filled = CIRCUMFERENCE * progress;
+  const ring = document.getElementById('calorie-ring');
+  ring.style.strokeDasharray = `${filled} ${CIRCUMFERENCE}`;
+  const remaining = goal - consumed;
+  const over = consumed > goal;
+  ring.classList.toggle('over', over);
+  document.getElementById('ring-kcal-val').textContent = Math.abs(remaining);
+  document.getElementById('ring-kcal-val').classList.toggle('over', over);
+  document.getElementById('ring-kcal-label').textContent = over ? 'kcal over' : 'kcal left';
+  document.getElementById('ring-kcal-label').classList.toggle('over', over);
+
+  animateBar('pro-bar', protein, goalProtein);
+  animateBar('carb-bar', carbs, goalCarbs);
+  animateBar('fat-bar', fat, goalFat);
+
+  document.getElementById('pro-val').textContent = `${protein} / ${goalProtein}g`;
+  document.getElementById('carb-val').textContent = `${carbs} / ${goalCarbs}g`;
+  document.getElementById('fat-val').textContent = `${fat} / ${goalFat}g`;
+  document.getElementById('pro-val').classList.toggle('over', protein > goalProtein);
+  document.getElementById('carb-val').classList.toggle('over', carbs > goalCarbs);
+  document.getElementById('fat-val').classList.toggle('over', fat > goalFat);
+}
+function animateBar(id, current, goal) {
+  const pct = goal > 0 ? Math.min(current / goal, 1) * 100 : 0;
+  document.getElementById(id).style.width = pct + '%';
+  const over = current > goal;
+  document.getElementById(id).style.background = over ? '#DC2626' : id.includes('pro') ? '#1D4ED8' : id.includes('carb') ? '#B45309' : '#6D28D9';
+}
+
+// ─── Navigation ────────────────────────────────────────────────────────
+function navigateTo(screen, param) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-chip').forEach(c => c.classList.remove('active'));
+  document.getElementById('screen-' + screen).classList.add('active');
+  const chip = document.getElementById('chip-' + screen);
+  if (chip) chip.classList.add('active');
+  if (screen === 'chooser' && param) {
+    document.getElementById('chooser-meal-label').textContent = param;
+  }
+  if (screen === 'search') initSearch();
+}
+
+// ─── Date navigation ───────────────────────────────────────────────────
+function shiftDate(delta) {
+  appState.dateIdx = Math.max(0, Math.min(appState.dates.length - 1, appState.dateIdx + delta));
+  document.getElementById('date-display').textContent = appState.dates[appState.dateIdx];
+  if (appState.dateIdx === 2) {
+    appState.consumed = 1450; appState.protein = 95; appState.carbs = 180; appState.fat = 42;
+  } else if (appState.dateIdx === 1) {
+    appState.consumed = 2210; appState.protein = 158; appState.carbs = 260; appState.fat = 80;
+  } else if (appState.dateIdx === 0) {
+    appState.consumed = 1890; appState.protein = 130; appState.carbs = 220; appState.fat = 65;
+  } else {
+    appState.consumed = 0; appState.protein = 0; appState.carbs = 0; appState.fat = 0;
+  }
+  updateRing();
+}
+
+// ─── Bottom sheet ──────────────────────────────────────────────────────
+function showSheet(name, kcal, pro, carbs, fat, serving) {
+  appState.sheetFood = { name, kcal, pro, carbs, fat, serving };
+  appState.qty = 1;
+  appState.saveOn = false;
+  document.getElementById('sheet-food-name').textContent = name;
+  document.getElementById('sheet-food-sub').textContent = serving;
+  document.getElementById('qty-val').textContent = '1';
+  document.getElementById('save-toggle').classList.remove('on');
+  document.getElementById('sheet-macros').innerHTML = `
+    <span class="chip chip-p">${pro}g P</span>
+    <span class="chip chip-c">${carbs}g C</span>
+    <span class="chip chip-f">${fat}g F</span>
+    <span class="chip" style="background:rgba(194,67,14,0.12);color:#C2430E;">${kcal} kcal</span>
+  `;
+  document.getElementById('bottom-overlay').classList.add('open');
+}
+function closeSheet(e) {
+  document.getElementById('bottom-overlay').classList.remove('open');
+}
+function adjustQty(delta) {
+  appState.qty = Math.max(0.5, appState.qty + delta * 0.5);
+  document.getElementById('qty-val').textContent = appState.qty % 1 === 0 ? appState.qty : appState.qty.toFixed(1);
+}
+function toggleSave() {
+  appState.saveOn = !appState.saveOn;
+  document.getElementById('save-toggle').classList.toggle('on', appState.saveOn);
+}
+function addToLog() {
+  const f = appState.sheetFood;
+  if (!f) return;
+  const q = appState.qty;
+  appState.consumed += Math.round(f.kcal * q);
+  appState.protein += Math.round(f.pro * q);
+  appState.carbs += Math.round(f.carbs * q);
+  appState.fat += Math.round(f.fat * q);
+  updateRing();
+  closeSheet();
+  showToast(appState.saveOn ? `Added & saved "${f.name}"` : `Added "${f.name}" to log`);
+}
+
+// ─── Food search ───────────────────────────────────────────────────────
+const DEMO_FOODS = [
+  { name: 'Chicken Breast (Grilled)', brand: 'USDA FoodData', kcal: 165, pro: 31, carbs: 0, fat: 4, serving: '100g' },
+  { name: 'Whole Milk', brand: 'USDA FoodData', kcal: 61, pro: 3, carbs: 5, fat: 3, serving: '100ml' },
+  { name: 'White Rice (Cooked)', brand: 'USDA FoodData', kcal: 130, pro: 3, carbs: 28, fat: 0, serving: '100g' },
+  { name: 'Cheddar Cheese', brand: 'USDA FoodData', kcal: 403, pro: 25, carbs: 1, fat: 33, serving: '100g' },
+  { name: 'Egg (Large)', brand: 'USDA FoodData', kcal: 78, pro: 6, carbs: 1, fat: 5, serving: '1 egg (50g)' },
+  { name: 'Almonds (Raw)', brand: 'USDA FoodData', kcal: 579, pro: 21, carbs: 22, fat: 50, serving: '100g' },
+  { name: 'Apple', brand: 'USDA FoodData', kcal: 52, pro: 0, carbs: 14, fat: 0, serving: '1 medium (182g)' },
+  { name: 'Greek Yogurt', brand: 'USDA FoodData', kcal: 59, pro: 10, carbs: 4, fat: 0, serving: '100g' },
+  { name: 'Avocado', brand: 'USDA FoodData', kcal: 160, pro: 2, carbs: 9, fat: 15, serving: '100g' },
+  { name: 'Salmon (Atlantic)', brand: 'USDA FoodData', kcal: 208, pro: 20, carbs: 0, fat: 13, serving: '100g' },
+  { name: 'Chobani Plain Greek Yogurt', brand: 'Open Food Facts', kcal: 90, pro: 17, carbs: 6, fat: 0, serving: '170g container' },
+  { name: 'Quaker Oats Old Fashioned', brand: 'Open Food Facts', kcal: 150, pro: 5, carbs: 27, fat: 3, serving: '40g (½ cup dry)' },
+];
+let searchTimer = null;
+function initSearch() {
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-results').innerHTML = `
+    <p style="color:#6B7265;font-size:13px;text-align:center;padding:32px 0;">
+      Start typing to search USDA FoodData<br>and Open Food Facts
+    </p>`;
+}
+function handleSearch(q) {
+  clearTimeout(searchTimer);
+  const results = document.getElementById('search-results');
+  if (!q.trim()) { initSearch(); return; }
+  results.innerHTML = `<div class="loading-row"><div class="spinner"></div> Searching databases…</div>`;
+  searchTimer = setTimeout(() => {
+    const term = q.toLowerCase();
+    const local = DEMO_FOODS.filter(f => f.name.toLowerCase().includes(term) && f.brand === 'Open Food Facts');
+    const remote = DEMO_FOODS.filter(f => f.name.toLowerCase().includes(term) && f.brand === 'USDA FoodData');
+    let html = '';
+    if (local.length) {
+      html += `<div class="section-header">Your Library</div>`;
+      local.forEach(f => html += foodResultHTML(f));
+    }
+    if (remote.length) {
+      html += `<div class="section-header">Food Database</div>`;
+      remote.forEach(f => html += foodResultHTML(f));
+    }
+    if (!local.length && !remote.length) {
+      html = `<p style="color:#6B7265;font-size:13px;text-align:center;padding:32px 0;">No results for "${q}"</p>`;
+    }
+    results.innerHTML = html;
+  }, 350);
+}
+function foodResultHTML(f) {
+  return `<div class="card pressable result-card" style="gap:10px;margin-bottom:8px;padding:12px 14px;"
+    onclick="showSheet('${f.name}',${f.kcal},${f.pro},${f.carbs},${f.fat},'${f.serving}')">
+    <div style="flex:1">
+      <div class="result-name">${f.name}</div>
+      <div class="result-sub">${f.brand} · ${f.serving}</div>
+      <div class="macro-chips">
+        <span class="chip chip-p">${f.pro}g P</span>
+        <span class="chip chip-c">${f.carbs}g C</span>
+        <span class="chip chip-f">${f.fat}g F</span>
+      </div>
+    </div>
+    <div style="text-align:right;flex-shrink:0">
+      <div class="result-kcal">${f.kcal}</div>
+      <div style="font-size:10px;color:#6B7265">kcal</div>
+    </div>
+    <div class="result-add-btn">+</div>
+  </div>`;
+}
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  initSearch();
+}
+
+// ─── Settings ──────────────────────────────────────────────────────────
+function saveGoals() {
+  appState.goal = parseInt(document.getElementById('goal-cal').value) || 2100;
+  appState.goalProtein = parseInt(document.getElementById('goal-pro').value) || 150;
+  appState.goalCarbs = parseInt(document.getElementById('goal-carb').value) || 250;
+  appState.goalFat = parseInt(document.getElementById('goal-fat').value) || 70;
+  updateRing();
+  showToast('Goals saved!');
+}
+
+// ─── Toast ─────────────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────
+setTimeout(updateRing, 100);
+initSearch();
+</script>
+</body>
+</html>
