@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.localmacrotracker.app.ui.components.PressableCard
 import com.localmacrotracker.app.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -128,13 +129,10 @@ private fun AddOptionCard(
     tint: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit
 ) {
-    Surface(
-        color = DarkSurface,
-        shape = RoundedCornerShape(12.dp),
-        shadowElevation = 2.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
+    PressableCard(
+        onClick = onClick,
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier

@@ -2,6 +2,7 @@ package com.localmacrotracker.app.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -18,6 +20,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.localmacrotracker.app.BuildConfig
+import com.localmacrotracker.app.ui.theme.AccentGreen
+import com.localmacrotracker.app.ui.theme.DarkBackground
+import com.localmacrotracker.app.ui.theme.DarkSurface
+import com.localmacrotracker.app.ui.theme.TextPrimary
+import com.localmacrotracker.app.ui.theme.TextSecondary
 import com.localmacrotracker.app.ui.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,9 +54,15 @@ fun SettingsScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = DarkSurface,
+                    titleContentColor = TextPrimary,
+                    navigationIconContentColor = TextSecondary
+                )
             )
-        }
+        },
+        containerColor = DarkBackground
     ) { padding ->
         Column(
             modifier = Modifier
@@ -161,10 +174,16 @@ private fun SettingsSection(
         Text(
             title,
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
+            fontWeight = FontWeight.SemiBold,
+            color = AccentGreen
         )
         Spacer(Modifier.height(8.dp))
-        Card(modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            color = DarkSurface,
+            shape = RoundedCornerShape(16.dp),
+            shadowElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),

@@ -30,6 +30,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.localmacrotracker.app.data.model.FoodCandidate
 import com.localmacrotracker.app.data.model.MealSection
+import com.localmacrotracker.app.ui.components.PressableCard
 import com.localmacrotracker.app.ui.theme.*
 import com.localmacrotracker.app.ui.viewmodel.FoodSearchViewModel
 import java.time.LocalDate
@@ -155,7 +156,8 @@ fun FoodSearchScreen(
                             FoodResultRow(
                                 food = food,
                                 isLocal = true,
-                                onClick = { selectedFood = food }
+                                onClick = { selectedFood = food },
+                                modifier = Modifier.animateItem()
                             )
                         }
                     }
@@ -173,7 +175,8 @@ fun FoodSearchScreen(
                             FoodResultRow(
                                 food = food,
                                 isLocal = false,
-                                onClick = { selectedFood = food }
+                                onClick = { selectedFood = food },
+                                modifier = Modifier.animateItem()
                             )
                         }
                     }
@@ -328,7 +331,8 @@ private fun AddFoodBottomSheet(
                     onClick = {
                         val v = (qty - 0.5).coerceAtLeast(0.5)
                         quantityText = if (v == v.toLong().toDouble()) v.toLong().toString() else v.toString()
-                    }
+                    },
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(Icons.Default.Remove, "Decrease")
                 }
@@ -347,7 +351,8 @@ private fun AddFoodBottomSheet(
                     onClick = {
                         val v = qty + 0.5
                         quantityText = if (v == v.toLong().toDouble()) v.toLong().toString() else v.toString()
-                    }
+                    },
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(Icons.Default.Add, "Increase")
                 }
@@ -389,7 +394,9 @@ private fun AddFoodBottomSheet(
             Button(
                 onClick = { onAdd(qty.coerceAtLeast(0.1), saveFood) },
                 enabled = quantityText.toDoubleOrNull() != null && quantityText.toDoubleOrNull()!! > 0,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 52.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
@@ -431,17 +438,16 @@ private fun SectionHeader(title: String, isLoading: Boolean, count: Int) {
 private fun FoodResultRow(
     food: FoodCandidate,
     isLocal: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Surface(
-        color = DarkSurface,
-        modifier = Modifier
+    PressableCard(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        shadowElevation = 1.dp,
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 3.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(10.dp),
-        shadowElevation = 1.dp
     ) {
         Row(
             modifier = Modifier

@@ -6,11 +6,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material3.*
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.runtime.*
@@ -18,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -30,6 +33,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.localmacrotracker.app.data.db.entities.FoodLogEntryEntity
 import com.localmacrotracker.app.data.model.MealSection
 import com.localmacrotracker.app.domain.DailyTotalsCalculator
+import com.localmacrotracker.app.ui.components.CalorieRing
+import com.localmacrotracker.app.ui.components.MacroGoalBar
 import com.localmacrotracker.app.ui.theme.*
 import com.localmacrotracker.app.ui.viewmodel.DailyLogViewModel
 import com.localmacrotracker.app.ui.viewmodel.SettingsViewModel
@@ -87,11 +92,20 @@ fun DailyLogScreen(
                             showMealPicker = false
                             onSearchFoods(section.name, selectedDate.toString())
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
                     ) {
+                        Icon(
+                            mealIcon(section),
+                            contentDescription = null,
+                            tint = mealTint(section),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
                         Text(
                             section.displayName,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.weight(1f),
                             color = TextPrimary,
                             style = MaterialTheme.typography.bodyLarge
                         )
@@ -114,6 +128,7 @@ fun DailyLogScreen(
                         }) {
                             Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous day")
                         }
+                        // Tapping the date jumps back to today
                         Text(
                             text = when (selectedDate) {
                                 LocalDate.now() -> "Today"
@@ -122,7 +137,11 @@ fun DailyLogScreen(
                             },
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
+                            color = TextPrimary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { viewModel.setDate(LocalDate.now()) }
+                                .padding(horizontal = 8.dp, vertical = 6.dp)
                         )
                         IconButton(onClick = {
                             viewModel.setDate(selectedDate.plusDays(1))
@@ -153,90 +172,75 @@ fun DailyLogScreen(
         },
         containerColor = DarkBackground
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(paddingValues),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Sticky daily totals bar
-            DailyTotalsBar(totals = dailyTotals)
-
-            // Goal progress bars — shown only when at least one goal is set
-            if (goalCalories > 0 || goalProtein > 0 || goalCarbs > 0 || goalFat > 0) {
-                GoalProgressSection(
+            // Hero summary: calorie ring + macro progress
+            item(key = "summary") {
+                DailySummaryCard(
                     dailyTotals = dailyTotals,
                     goalCalories = goalCalories,
                     goalProtein = goalProtein,
                     goalCarbs = goalCarbs,
-                    goalFat = goalFat
+                    goalFat = goalFat,
+                    onSetGoals = onNavigateToSettings
                 )
             }
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 16.dp)
-            ) {
-                // Weight quick-entry widget
-                item(key = "weight_widget") {
-                    WeightQuickEntry(
-                        todayWeight = todayWeight?.weightLbs,
-                        onLog = { lbs -> weightVm.logWeight(lbs) },
-                        onNavigateToTracker = onNavigateToWeightTracker
-                    )
-                }
+            // Weight quick-entry widget
+            item(key = "weight_widget") {
+                WeightQuickEntry(
+                    todayWeight = todayWeight?.weightLbs,
+                    onLog = { lbs -> weightVm.logWeight(lbs) },
+                    onNavigateToTracker = onNavigateToWeightTracker
+                )
+            }
 
-                MealSection.values().forEach { section ->
-                    val entries = entriesBySection[section] ?: emptyList()
-                    val sectionTotals = DailyTotalsCalculator.calculate(entries)
-
-                    item(key = "header_${section.name}") {
-                        MealSectionHeader(
-                            section = section,
-                            totals = sectionTotals,
-                            onAddEntry = { onAddEntry(section.name, selectedDate.toString()) },
-                            onImportPrevious = { viewModel.importPreviousSection(section) }
-                        )
-                    }
-
-                    if (entries.isEmpty()) {
-                        item(key = "empty_${section.name}") {
-                            Text(
-                                text = "No entries yet",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TextSecondary,
-                                modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp)
-                            )
-                        }
-                    } else {
-                        items(entries, key = { it.id }) { entry ->
-                            SwipeToDeleteFoodRow(
-                                entry = entry,
-                                onTap = { onEntryTapped(entry.id) },
-                                onDelete = { viewModel.deleteEntry(entry.id) }
-                            )
-                        }
-                    }
-
-                    item(key = "divider_${section.name}") {
-                        HorizontalDivider(
-                            color = Divider,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                    }
-                }
+            items(
+                items = MealSection.values().toList(),
+                key = { "meal_${it.name}" }
+            ) { section ->
+                MealCard(
+                    section = section,
+                    entries = entriesBySection[section] ?: emptyList(),
+                    onAddEntry = { onAddEntry(section.name, selectedDate.toString()) },
+                    onImportPrevious = { viewModel.importPreviousSection(section) },
+                    onEntryTapped = onEntryTapped,
+                    onDeleteEntry = { viewModel.deleteEntry(it) }
+                )
             }
         }
     }
 }
 
+private fun mealIcon(section: MealSection): ImageVector = when (section) {
+    MealSection.BREAKFAST -> Icons.Filled.FreeBreakfast
+    MealSection.LUNCH -> Icons.Filled.LunchDining
+    MealSection.DINNER -> Icons.Filled.DinnerDining
+    MealSection.SNACKS -> Icons.Filled.Cookie
+}
+
+private fun mealTint(section: MealSection): Color = when (section) {
+    MealSection.BREAKFAST -> ReminderAmber
+    MealSection.LUNCH -> AccentGreen
+    MealSection.DINNER -> MacroProtein
+    MealSection.SNACKS -> MacroFat
+}
+
 @Composable
-private fun GoalProgressSection(
+private fun DailySummaryCard(
     dailyTotals: DailyTotalsCalculator.DailyTotals,
     goalCalories: Int,
     goalProtein: Int,
     goalCarbs: Int,
-    goalFat: Int
+    goalFat: Int,
+    onSetGoals: () -> Unit
 ) {
+    val isEstimated = dailyTotals is DailyTotalsCalculator.DailyTotals.Range
     val (cal, pro, carb, fat) = when (dailyTotals) {
         is DailyTotalsCalculator.DailyTotals.Exact -> {
             val t = dailyTotals.totals
@@ -244,7 +248,7 @@ private fun GoalProgressSection(
         }
         is DailyTotalsCalculator.DailyTotals.Range -> {
             val t = dailyTotals.totals
-            // Use midpoint of range for progress
+            // Midpoint of the estimated range drives the progress display
             listOf(
                 (t.caloriesMin + t.caloriesMax) / 2,
                 (t.proteinMin + t.proteinMax) / 2,
@@ -254,52 +258,196 @@ private fun GoalProgressSection(
         }
         is DailyTotalsCalculator.DailyTotals.Empty -> listOf(0.0, 0.0, 0.0, 0.0)
     }
-    Surface(color = DarkSurface) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
-            if (goalCalories > 0) GoalBar("Cal", cal.toInt(), goalCalories, MacroCalories)
-            if (goalProtein > 0) GoalBar("Pro", pro.toInt(), goalProtein, MacroProtein)
-            if (goalCarbs > 0) GoalBar("Carb", carb.toInt(), goalCarbs, MacroCarbs)
-            if (goalFat > 0) GoalBar("Fat", fat.toInt(), goalFat, MacroFat)
+    val hasAnyGoal = goalCalories > 0 || goalProtein > 0 || goalCarbs > 0 || goalFat > 0
+
+    Surface(
+        color = DarkSurface,
+        shape = RoundedCornerShape(20.dp),
+        shadowElevation = 2.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                CalorieRing(
+                    consumed = cal.toInt(),
+                    goal = goalCalories,
+                    isEstimated = isEstimated,
+                    progressColor = AccentGreen
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    MacroGoalBar("Protein", pro.toInt(), goalProtein, MacroProtein)
+                    MacroGoalBar("Carbs", carb.toInt(), goalCarbs, MacroCarbs)
+                    MacroGoalBar("Fat", fat.toInt(), goalFat, MacroFat)
+                }
+            }
+            if (!hasAnyGoal) {
+                Spacer(Modifier.height(8.dp))
+                TextButton(
+                    onClick = onSetGoals,
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.Flag,
+                        contentDescription = null,
+                        tint = AccentGreen,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "Set daily goals to track progress",
+                        color = AccentGreen,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
         }
     }
-    HorizontalDivider(color = Divider)
 }
 
 @Composable
-private fun GoalBar(label: String, current: Int, goal: Int, color: Color) {
-    val progress = (current.toFloat() / goal).coerceIn(0f, 1f)
-    val overGoal = current > goal
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+private fun MealCard(
+    section: MealSection,
+    entries: List<FoodLogEntryEntity>,
+    onAddEntry: () -> Unit,
+    onImportPrevious: () -> Unit,
+    onEntryTapped: (entryId: Long) -> Unit,
+    onDeleteEntry: (entryId: Long) -> Unit
+) {
+    val totals = DailyTotalsCalculator.calculate(entries)
+    val tint = mealTint(section)
+
+    Surface(
+        color = DarkSurface,
+        shape = RoundedCornerShape(16.dp),
+        shadowElevation = 2.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = TextSecondary,
-            modifier = Modifier.width(30.dp)
-        )
-        LinearProgressIndicator(
-            progress = { progress },
-            modifier = Modifier
-                .weight(1f)
-                .height(6.dp),
-            color = if (overGoal) ErrorRed else color,
-            trackColor = DarkSurfaceVariant
-        )
-        Text(
-            "$current/$goal",
-            style = MaterialTheme.typography.labelSmall,
-            color = if (overGoal) ErrorRed else TextSecondary,
-            modifier = Modifier.width(70.dp),
-            textAlign = androidx.compose.ui.text.style.TextAlign.End
-        )
+        Column {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 14.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(tint.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        mealIcon(section),
+                        contentDescription = null,
+                        tint = tint,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = section.displayName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    when (totals) {
+                        is DailyTotalsCalculator.DailyTotals.Exact -> {
+                            val t = totals.totals
+                            Text(
+                                text = "${t.calories.toInt()} kcal · P${t.proteinGrams.toInt()} C${t.carbsGrams.toInt()} F${t.fatGrams.toInt()}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextSecondary
+                            )
+                        }
+                        is DailyTotalsCalculator.DailyTotals.Range -> {
+                            val t = totals.totals
+                            Text(
+                                text = "~${t.caloriesMin.toInt()}–${t.caloriesMax.toInt()} kcal",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = EstimatedColor
+                            )
+                        }
+                        is DailyTotalsCalculator.DailyTotals.Empty -> { /* nothing */ }
+                    }
+                }
+                // Copy yesterday's section
+                IconButton(onClick = onImportPrevious) {
+                    Icon(
+                        Icons.Filled.ContentCopy,
+                        contentDescription = "Copy yesterday's ${section.displayName}",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                // Primary action: add food
+                Button(
+                    onClick = onAddEntry,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = tint.copy(alpha = 0.14f),
+                        contentColor = tint
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp),
+                    elevation = null,
+                    modifier = Modifier.heightIn(min = 36.dp)
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Add", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            if (entries.isEmpty()) {
+                // Friendly empty state — entire row is tappable
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onAddEntry)
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        Icons.Outlined.AddCircleOutline,
+                        contentDescription = null,
+                        tint = TextSecondary.copy(alpha = 0.6f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "Nothing logged yet — tap to add",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+            } else {
+                Spacer(Modifier.height(4.dp))
+                entries.forEachIndexed { index, entry ->
+                    if (index > 0) {
+                        HorizontalDivider(
+                            color = Divider.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(horizontal = 14.dp)
+                        )
+                    }
+                    SwipeToDeleteFoodRow(
+                        entry = entry,
+                        onTap = { onEntryTapped(entry.id) },
+                        onDelete = { onDeleteEntry(entry.id) }
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+            }
+        }
     }
 }
 
@@ -324,14 +472,15 @@ private fun WeightQuickEntry(
         color = DarkSurface,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(10.dp),
+            .padding(horizontal = 12.dp),
+        shape = RoundedCornerShape(14.dp),
+        shadowElevation = 1.dp,
         onClick = onNavigateToTracker
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -389,168 +538,6 @@ private fun WeightQuickEntry(
     }
 }
 
-@Composable
-private fun DailyTotalsBar(totals: DailyTotalsCalculator.DailyTotals) {
-    Surface(
-        color = DarkSurface,
-        shadowElevation = 4.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            when (totals) {
-                is DailyTotalsCalculator.DailyTotals.Empty -> {
-                    Text(
-                        text = "No entries for this day",
-                        color = TextSecondary,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                is DailyTotalsCalculator.DailyTotals.Exact -> {
-                    val t = totals.totals
-                    MacroTotalItem(label = "Cal", value = "${t.calories.toInt()}", color = MacroCalories)
-                    MacroTotalItem(label = "Protein", value = "${t.proteinGrams.toInt()}g", color = MacroProtein)
-                    MacroTotalItem(label = "Carbs", value = "${t.carbsGrams.toInt()}g", color = MacroCarbs)
-                    MacroTotalItem(label = "Fat", value = "${t.fatGrams.toInt()}g", color = MacroFat)
-                }
-                is DailyTotalsCalculator.DailyTotals.Range -> {
-                    val t = totals.totals
-                    MacroTotalItem(
-                        label = "Cal",
-                        value = "${t.caloriesMin.toInt()}–${t.caloriesMax.toInt()}",
-                        color = EstimatedColor
-                    )
-                    MacroTotalItem(
-                        label = "Protein",
-                        value = "${t.proteinMin.toInt()}–${t.proteinMax.toInt()}g",
-                        color = MacroProtein
-                    )
-                    MacroTotalItem(
-                        label = "Carbs",
-                        value = "${t.carbsMin.toInt()}–${t.carbsMax.toInt()}g",
-                        color = MacroCarbs
-                    )
-                    MacroTotalItem(
-                        label = "Fat",
-                        value = "${t.fatMin.toInt()}–${t.fatMax.toInt()}g",
-                        color = MacroFat
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MacroTotalItem(
-    label: String,
-    value: String,
-    color: Color = TextPrimary
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = color,
-            fontSize = 13.sp
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = TextSecondary,
-            fontSize = 10.sp
-        )
-    }
-}
-
-@Composable
-private fun MealSectionHeader(
-    section: MealSection,
-    totals: DailyTotalsCalculator.DailyTotals,
-    onAddEntry: () -> Unit,
-    onImportPrevious: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(DarkBackground)
-            .padding(top = 12.dp, start = 16.dp, end = 16.dp, bottom = 4.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = section.displayName,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = AccentGreen,
-                modifier = Modifier.weight(1f)
-            )
-            // Section macro summary
-            when (totals) {
-                is DailyTotalsCalculator.DailyTotals.Exact -> {
-                    val t = totals.totals
-                    Text(
-                        text = "${t.calories.toInt()} kcal · P${t.proteinGrams.toInt()} C${t.carbsGrams.toInt()} F${t.fatGrams.toInt()}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary
-                    )
-                }
-                is DailyTotalsCalculator.DailyTotals.Range -> {
-                    val t = totals.totals
-                    Text(
-                        text = "${t.caloriesMin.toInt()}–${t.caloriesMax.toInt()} kcal",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = EstimatedColor
-                    )
-                }
-                is DailyTotalsCalculator.DailyTotals.Empty -> { /* nothing */ }
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            TextButton(
-                onClick = onAddEntry,
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-            ) {
-                Icon(
-                    Icons.Filled.Add,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = AccentGreen
-                )
-                Spacer(Modifier.width(4.dp))
-                Text("Add", color = AccentGreen, style = MaterialTheme.typography.labelMedium)
-            }
-            TextButton(
-                onClick = onImportPrevious,
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-            ) {
-                Icon(
-                    Icons.Filled.ContentCopy,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = TextSecondary
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    "Import Yesterday's ${section.displayName}",
-                    color = TextSecondary,
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeToDeleteFoodRow(
@@ -600,59 +587,51 @@ private fun FoodLogEntryRow(
     entry: FoodLogEntryEntity,
     onTap: () -> Unit
 ) {
-    Surface(
-        color = DarkSurface,
-        shape = RoundedCornerShape(8.dp),
-        shadowElevation = 1.dp,
+    Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(DarkSurface)
             .clickable(onClick = onTap)
-            .padding(horizontal = 12.dp, vertical = 3.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = entry.displayNameSnapshot,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = TextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    if (entry.needsManualSaveReminder) {
-                        ReminderBadge()
-                    }
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = entry.displayNameSnapshot,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (entry.needsManualSaveReminder) {
+                    ReminderBadge()
                 }
-                Text(
-                    text = buildServingLabel(entry),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary
-                )
             }
-            Spacer(Modifier.width(8.dp))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = buildCalorieLabel(entry),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (entry.isEstimated) EstimatedColor else MacroCalories
-                )
-                Text(
-                    text = buildMacroLabel(entry),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary
-                )
-            }
+            Text(
+                text = buildServingLabel(entry),
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = buildCalorieLabel(entry),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = if (entry.isEstimated) EstimatedColor else MacroCalories
+            )
+            Text(
+                text = buildMacroLabel(entry),
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary
+            )
         }
     }
 }
