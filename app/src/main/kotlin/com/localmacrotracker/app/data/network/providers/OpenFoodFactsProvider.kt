@@ -46,13 +46,23 @@ class OpenFoodFactsProvider @Inject constructor(
         val name = product.productName?.takeIf { it.isNotBlank() } ?: return null
         val nm = product.nutriments ?: return null
 
-        // Prefer per-serving values, fall back to per-100g
-        var calories = nm.caloriesPerServing ?: nm.caloriesPer100g ?: return null
         var protein = nm.proteinPerServing ?: nm.proteinPer100g ?: 0.0
         var carbs = nm.carbsPerServing ?: nm.carbsPer100g ?: 0.0
         var fat = nm.fatPerServing ?: nm.fatPer100g ?: 0.0
 
-        var usesPer100g = nm.caloriesPerServing == null
+        // Energy: prefer kcal, fall back to kJ (÷4.184), then derive from macros.
+        val kcalServing = nm.caloriesPerServing
+            ?: nm.energyKjPerServing?.div(KJ_PER_KCAL)
+            ?: nm.energyPerServing?.div(KJ_PER_KCAL)
+        val kcal100g = nm.caloriesPer100g
+            ?: nm.energyKjPer100g?.div(KJ_PER_KCAL)
+            ?: nm.energyPer100g?.div(KJ_PER_KCAL)
+
+        var usesPer100g = kcalServing == null
+        // Keep a product if it has a name and *any* usable nutrition; only drop true junk.
+        var calories = kcalServing ?: kcal100g
+            ?: (protein * 4 + carbs * 4 + fat * 9).takeIf { it > 0 }
+            ?: return null
 
         // Per-100g data but a declared serving size (e.g. "30 g" or "2 cookies (28 g)"):
         // scale macros to the actual serving so users see per-serving values.
@@ -99,6 +109,7 @@ class OpenFoodFactsProvider @Inject constructor(
     }
 
     companion object {
+        private const val KJ_PER_KCAL = 4.184
         private val SERVING_GRAMS_REGEX = Regex("""(\d+(?:[.,]\d+)?)\s*g""", RegexOption.IGNORE_CASE)
 
         /** Extracts gram weight from serving strings like "30 g", "30g", or "2 cookies (28 g)". */

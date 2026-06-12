@@ -18,7 +18,9 @@ interface OpenFoodFactsApi {
         @Query("search_terms") query: String,
         @Query("search_simple") searchSimple: Int = 1,
         @Query("json") json: Int = 1,
-        @Query("page_size") pageSize: Int = 10,
+        @Query("page_size") pageSize: Int = 25,
+        // Surface well-known products first so the top results have complete data.
+        @Query("sort_by") sortBy: String = "unique_scans_n",
         @Query("fields") fields: String = "product_name,brands,serving_size,nutriments"
     ): OFFSearchResponse
 }
@@ -50,6 +52,11 @@ data class OFFProduct(
 data class OFFNutriments(
     @SerialName("energy-kcal_serving") val caloriesPerServing: Double? = null,
     @SerialName("energy-kcal_100g") val caloriesPer100g: Double? = null,
+    // Many (esp. non-US) products store energy only in kJ — convert as a fallback.
+    @SerialName("energy-kj_serving") val energyKjPerServing: Double? = null,
+    @SerialName("energy-kj_100g") val energyKjPer100g: Double? = null,
+    @SerialName("energy_serving") val energyPerServing: Double? = null,
+    @SerialName("energy_100g") val energyPer100g: Double? = null,
     @SerialName("proteins_serving") val proteinPerServing: Double? = null,
     @SerialName("proteins_100g") val proteinPer100g: Double? = null,
     @SerialName("carbohydrates_serving") val carbsPerServing: Double? = null,

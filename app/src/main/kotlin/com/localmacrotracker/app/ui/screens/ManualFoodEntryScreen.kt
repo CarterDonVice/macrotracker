@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -17,6 +18,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.localmacrotracker.app.data.model.MealSection
+import com.localmacrotracker.app.data.model.MeasurementUnit
+import com.localmacrotracker.app.data.model.MeasurementUnits
+import com.localmacrotracker.app.data.model.UnitKind
 import com.localmacrotracker.app.ui.theme.*
 import com.localmacrotracker.app.ui.viewmodel.ManualFoodEntryViewModel
 import java.time.LocalDate
@@ -33,7 +37,10 @@ fun ManualFoodEntryScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     var foodName by remember { mutableStateOf("") }
-    var servingText by remember { mutableStateOf("") }
+    var servingAmount by remember { mutableStateOf("") }
+    var unitQuery by remember { mutableStateOf("") }
+    var selectedUnit by remember { mutableStateOf<MeasurementUnit?>(null) }
+    var unitExpanded by remember { mutableStateOf(false) }
     var caloriesInput by remember { mutableStateOf("") }
     var proteinInput by remember { mutableStateOf("") }
     var carbsInput by remember { mutableStateOf("") }
@@ -87,12 +94,69 @@ fun ManualFoodEntryScreen(
                 onValueChange = { foodName = it },
                 keyboardType = KeyboardType.Text
             )
-            ManualField(
-                label = "Serving size (e.g. 1 cup, 85g)",
-                value = servingText,
-                onValueChange = { servingText = it },
-                keyboardType = KeyboardType.Text
+
+            // ── Serving size: amount + searchable unit dropdown ──
+            Text(
+                "Serving size",
+                style = MaterialTheme.typography.labelMedium,
+                color = TextSecondary
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                OutlinedTextField(
+                    value = servingAmount,
+                    onValueChange = { if (it.isEmpty() || it.toDoubleOrNull() != null) servingAmount = it },
+                    label = { Text("Amount") },
+                    placeholder = { Text("e.g. 10") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = manualFieldColors()
+                )
+                ExposedDropdownMenuBox(
+                    expanded = unitExpanded,
+                    onExpandedChange = { unitExpanded = it },
+                    modifier = Modifier.weight(1.3f)
+                ) {
+                    OutlinedTextField(
+                        value = unitQuery,
+                        onValueChange = {
+                            unitQuery = it
+                            selectedUnit = null
+                            unitExpanded = true
+                        },
+                        label = { Text("Unit") },
+                        placeholder = { Text("g, cup, piece…") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitExpanded) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryEditable)
+                            .fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = manualFieldColors()
+                    )
+                    val filteredUnits = MeasurementUnits.search(unitQuery)
+                    ExposedDropdownMenu(
+                        expanded = unitExpanded && filteredUnits.isNotEmpty(),
+                        onDismissRequest = { unitExpanded = false }
+                    ) {
+                        filteredUnits.forEach { unit ->
+                            DropdownMenuItem(
+                                text = { Text("${unit.label}   ${unit.fullName}") },
+                                onClick = {
+                                    selectedUnit = unit
+                                    unitQuery = unit.label
+                                    unitExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
 
             HorizontalDivider(color = Divider, thickness = 0.5.dp)
 
@@ -115,15 +179,37 @@ fun ManualFoodEntryScreen(
                 )
             }
 
+            Text(
+                "Saved foods are added to your library so you can find them in search later.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+
             Spacer(Modifier.height(4.dp))
 
             Button(
                 onClick = {
+                    val amount = servingAmount.toDoubleOrNull()
+                    val unit = selectedUnit
+                    val servingTextValue = when {
+                        servingAmount.isNotBlank() && unit != null -> "${servingAmount.trim()} ${unit.label}"
+                        servingAmount.isNotBlank() -> servingAmount.trim()
+                        unit != null -> unit.label
+                        unitQuery.isNotBlank() -> unitQuery.trim()
+                        else -> null
+                    }
+                    val grams = if (amount != null && unit?.kind == UnitKind.WEIGHT)
+                        amount * (unit.grams ?: 0.0) else null
+                    val milliliters = if (amount != null && unit?.kind == UnitKind.VOLUME)
+                        amount * (unit.milliliters ?: 0.0) else null
                     viewModel.save(
                         mealSection = parsedSection,
                         logDate = parsedDate,
                         name = foodName,
-                        servingText = servingText,
+                        servingText = servingTextValue,
+                        unitLabel = unit?.label ?: unitQuery.trim().ifBlank { null },
+                        servingWeightGrams = grams,
+                        servingVolumeMl = milliliters,
                         calories = caloriesInput.toDoubleOrNull(),
                         proteinGrams = proteinInput.toDoubleOrNull(),
                         carbsGrams = carbsInput.toDoubleOrNull(),
@@ -140,7 +226,7 @@ fun ManualFoodEntryScreen(
                 shape = RoundedCornerShape(10.dp)
             ) {
                 Text(
-                    "Save to Log",
+                    "Save Food & Add to Log",
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
@@ -165,15 +251,18 @@ private fun ManualField(
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = AccentGreen,
-            unfocusedBorderColor = Divider,
-            focusedLabelColor = AccentGreen,
-            focusedTextColor = TextPrimary,
-            unfocusedTextColor = TextPrimary,
-            cursorColor = AccentGreen,
-            focusedContainerColor = DarkSurface,
-            unfocusedContainerColor = DarkSurface
-        )
+        colors = manualFieldColors()
     )
 }
+
+@Composable
+private fun manualFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = AccentGreen,
+    unfocusedBorderColor = Divider,
+    focusedLabelColor = AccentGreen,
+    focusedTextColor = TextPrimary,
+    unfocusedTextColor = TextPrimary,
+    cursorColor = AccentGreen,
+    focusedContainerColor = DarkSurface,
+    unfocusedContainerColor = DarkSurface
+)

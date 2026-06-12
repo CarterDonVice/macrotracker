@@ -33,18 +33,21 @@ class OcrLabelParserImpl @Inject constructor() : OcrLabelParser {
             val line = raw.lowercase()
             val nextRaw = lines.getOrNull(i + 1)
 
-            // Serving size
-            if (line.contains("serving size") || line.contains("serving:")) {
+            // Serving size — "Serving Size 2/3 cup (55g)", "Serv. size 30 g", "Per serving"
+            if (servingText == null && isServingSizeLine(line)) {
                 servingText = raw
+                // Capture grams when present (often in parentheses) for later scaling.
                 Regex("""(\d+(?:\.\d+)?)\s*g""", RegexOption.IGNORE_CASE)
                     .find(raw)?.groupValues?.get(1)?.toDoubleOrNull()
                     ?.let { servingWeightGrams = it }
             }
 
-            // Calories — "Calories 250", "Calories: 250", "250 Calories", "Cal 250"
+            // Calories — value may sit on the same line, the next line, or (big-font
+            // 2020-style labels) the line just before the "Calories" label.
             if (result.calories == null && isCalorieLine(line)) {
                 result.calories = extractNumber(raw)
                     ?: nextRaw?.let { extractStandaloneNumber(it) }
+                    ?: lines.getOrNull(i - 1)?.let { extractStandaloneNumber(it) }
             }
 
             // Total Fat — "Total Fat 12g", "Fat 12g", "12g Fat"
@@ -129,11 +132,19 @@ class OcrLabelParserImpl @Inject constructor() : OcrLabelParser {
 
     // ── Line classifiers ───────────────────────────────────────────────────
 
-    /** Matches calorie lines; excludes "Calories from Fat" */
+    /** Matches serving-size lines across common label wordings. */
+    private fun isServingSizeLine(line: String): Boolean =
+        line.contains("serving size") || line.contains("serv. size") ||
+            line.contains("serv size") || line.contains("serving:") ||
+            line.startsWith("per serving") || line.startsWith("serving ") ||
+            (line.startsWith("serving") && line.any { it.isDigit() })
+
+    /** Matches calorie lines; excludes "Calories from Fat" and per-container counts. */
     private fun isCalorieLine(line: String): Boolean {
         if (line.contains("from fat")) return false
-        return line.startsWith("calories") || line.startsWith("cal ") ||
-            line.endsWith("calories") || line.endsWith("calorie") || line.endsWith(" cal")
+        if (line.contains("per container") || line.contains("servings per")) return false
+        return line.contains("calories") || line.contains("calorie") ||
+            line.startsWith("cal ") || line.endsWith(" cal") || line == "cal"
     }
 
     /**

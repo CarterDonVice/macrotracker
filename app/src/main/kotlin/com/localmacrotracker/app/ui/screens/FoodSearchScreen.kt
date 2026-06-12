@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -21,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -30,6 +30,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.localmacrotracker.app.data.model.FoodCandidate
 import com.localmacrotracker.app.data.model.MealSection
+import com.localmacrotracker.app.data.model.SourceType
 import com.localmacrotracker.app.ui.components.PressableCard
 import com.localmacrotracker.app.ui.theme.*
 import com.localmacrotracker.app.ui.viewmodel.FoodSearchViewModel
@@ -155,7 +156,6 @@ fun FoodSearchScreen(
                         items(state.localResults, key = { it.id }) { food ->
                             FoodResultRow(
                                 food = food,
-                                isLocal = true,
                                 onClick = { selectedFood = food },
                                 modifier = Modifier.animateItem()
                             )
@@ -174,7 +174,6 @@ fun FoodSearchScreen(
                         items(state.remoteResults, key = { it.id }) { food ->
                             FoodResultRow(
                                 food = food,
-                                isLocal = false,
                                 onClick = { selectedFood = food },
                                 modifier = Modifier.animateItem()
                             )
@@ -434,13 +433,27 @@ private fun SectionHeader(title: String, isLoading: Boolean, count: Int) {
     }
 }
 
+/** Visual identity for a result's data source, shown as a badge on each row. */
+private data class SourceMeta(val icon: ImageVector, val label: String, val color: Color)
+
+private fun sourceMetaFor(food: FoodCandidate): SourceMeta = when {
+    food.isLocalSaved || food.sourceType == SourceType.LOCAL_SAVED ->
+        SourceMeta(Icons.Default.Bookmark, "Saved", AccentGreen)
+    food.sourceType == SourceType.USDA ->
+        SourceMeta(Icons.Default.Verified, "USDA", EstimatedColor)
+    food.sourceType == SourceType.OPEN_FOOD_FACTS || food.sourceType == SourceType.BARCODE ->
+        SourceMeta(Icons.Default.Public, "Open Food Facts", MacroCarbs)
+    else ->
+        SourceMeta(Icons.Default.Restaurant, "Other", TextSecondary)
+}
+
 @Composable
 private fun FoodResultRow(
     food: FoodCandidate,
-    isLocal: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val source = sourceMetaFor(food)
     PressableCard(
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
@@ -456,13 +469,21 @@ private fun FoodResultRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Source indicator dot
+            // Source badge — icon + colour tell you where the result came from.
             Box(
                 modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(if (isLocal) AccentGreen else EstimatedColor)
-            )
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(source.color.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    source.icon,
+                    contentDescription = "Source: ${source.label}",
+                    tint = source.color,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -502,14 +523,27 @@ private fun FoodResultRow(
                         color = MacroFat
                     )
                 }
-                food.servingText?.let {
+                // Source label (+ serving size if present)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        it,
+                        source.label,
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        color = source.color,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1
                     )
+                    food.servingText?.let {
+                        Text(
+                            "· $it",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
 

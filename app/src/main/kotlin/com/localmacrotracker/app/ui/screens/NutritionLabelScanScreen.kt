@@ -316,7 +316,10 @@ private fun CropScreen(
     // Initialize once from parent; we keep localCrop in sync via onCropRectChanged
     var localCrop by remember { mutableStateOf(cropRect) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Crop area takes all space above the button so its handles are never
+        // hidden under (or fighting touches with) the Analyze button.
+        Box(modifier = Modifier.fillMaxWidth().weight(1f).background(Color.Black)) {
         androidx.compose.foundation.Image(
             bitmap = bitmap.asImageBitmap(),
             contentDescription = "Captured nutrition label",
@@ -489,13 +492,13 @@ private fun CropScreen(
                 .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(6.dp))
                 .padding(horizontal = 10.dp, vertical = 4.dp)
         )
+        } // end crop Box
 
         Button(
             onClick = onAnalyze,
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 24.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.White),
             shape = RoundedCornerShape(10.dp)
         ) {

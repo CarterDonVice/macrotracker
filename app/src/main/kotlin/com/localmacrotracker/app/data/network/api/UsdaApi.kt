@@ -10,7 +10,7 @@ interface UsdaApi {
     suspend fun searchFoods(
         @Query("query") query: String,
         @Query("api_key") apiKey: String,
-        @Query("pageSize") pageSize: Int = 10,
+        @Query("pageSize") pageSize: Int = 25,
         @Query("dataType") dataType: String = "Foundation,SR Legacy,Branded"
     ): UsdaSearchResponse
 }

@@ -7,15 +7,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,14 +29,11 @@ fun SettingsScreen(
     onBack: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
-    val usdaKey by viewModel.usdaKey.collectAsStateWithLifecycle()
     val goalCalories by viewModel.goalCalories.collectAsStateWithLifecycle()
     val goalProtein by viewModel.goalProtein.collectAsStateWithLifecycle()
     val goalCarbs by viewModel.goalCarbs.collectAsStateWithLifecycle()
     val goalFat by viewModel.goalFat.collectAsStateWithLifecycle()
 
-    var keyInput by remember(usdaKey) { mutableStateOf(usdaKey) }
-    var keyVisible by remember { mutableStateOf(false) }
     var calInput by remember(goalCalories) { mutableStateOf(if (goalCalories > 0) goalCalories.toString() else "") }
     var proInput by remember(goalProtein) { mutableStateOf(if (goalProtein > 0) goalProtein.toString() else "") }
     var carbInput by remember(goalCarbs) { mutableStateOf(if (goalCarbs > 0) goalCarbs.toString() else "") }
@@ -74,34 +67,11 @@ fun SettingsScreen(
         ) {
             Spacer(Modifier.height(4.dp))
 
-            // ── API Keys ─────────────────────────────────────────────────
-            SettingsSection("API Keys") {
-                // USDA API key
-                OutlinedTextField(
-                    value = keyInput,
-                    onValueChange = { keyInput = it },
-                    label = { Text("USDA FoodData Central API Key") },
-                    placeholder = { Text("Get free key at fdc.nal.usda.gov") },
-                    visualTransformation = if (keyVisible) VisualTransformation.None
-                        else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { keyVisible = !keyVisible }) {
-                            Icon(
-                                if (keyVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                if (keyVisible) "Hide key" else "Show key"
-                            )
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                Button(
-                    onClick = { viewModel.saveUsdaKey(keyInput) },
-                    enabled = keyInput != usdaKey
-                ) { Text("Save USDA Key") }
+            // ── Food Database ─────────────────────────────────────────────
+            SettingsSection("Food Database") {
                 Text(
-                    "Keys are stored locally on this device. A USDA key enables database food search.",
+                    "Food search is powered by the USDA FoodData Central and Open Food Facts " +
+                        "databases, plus your own saved library. No setup or API key needed.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -109,13 +109,24 @@ fun RecipeScreen(
                 )
             }
             item {
+                // Keep the raw text locally so typing/deleting doesn't fight a reformatted
+                // Double (which made the cursor jump). Push the parsed value to the VM only
+                // when it's valid; the VM stays the source of truth for the macro math.
+                var servingsText by remember {
+                    mutableStateOf(
+                        if (servingsMade % 1.0 == 0.0) servingsMade.toInt().toString()
+                        else servingsMade.toString()
+                    )
+                }
                 OutlinedTextField(
-                    value = servingsMade.toString(),
+                    value = servingsText,
                     onValueChange = { s ->
+                        servingsText = s
                         s.toDoubleOrNull()?.let { viewModel.setServings(it) }
                     },
                     label = { Text("Servings Made") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
             }

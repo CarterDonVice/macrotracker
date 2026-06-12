@@ -20,6 +20,10 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        // USDA FoodData Central key — baked in so food search works out of the box.
+        // Free, rate-limited, regenerable at https://fdc.nal.usda.gov/api-key-signup
+        buildConfigField("String", "USDA_API_KEY", "\"zD8XL8pDW9utNyA8mo4FzEgSxLR14pgw1aj5mfWH\"")
+
         // Room schema export for migration tracking
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")

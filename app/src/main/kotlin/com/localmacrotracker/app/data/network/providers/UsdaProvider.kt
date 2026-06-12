@@ -1,9 +1,9 @@
 package com.localmacrotracker.app.data.network.providers
 
 import android.util.Log
+import com.localmacrotracker.app.BuildConfig
 import com.localmacrotracker.app.data.model.ExactnessType
 import com.localmacrotracker.app.data.model.FoodCandidate
-import com.localmacrotracker.app.data.model.NutrientCatalog
 import com.localmacrotracker.app.data.model.NutrientInfo
 import com.localmacrotracker.app.data.model.SourceType
 import com.localmacrotracker.app.data.network.FoodLookupProvider
@@ -34,9 +34,11 @@ class UsdaProvider @Inject constructor(
     override val providerName = "usda"
 
     override suspend fun search(query: String): List<FoodCandidate> {
-        val apiKey = prefs.usdaApiKey.first()
-        if (apiKey.isNullOrBlank()) {
-            Log.w(TAG, "USDA API key not set")
+        // Prefer a user-supplied override, else fall back to the baked-in key.
+        val apiKey = prefs.usdaApiKey.first()?.takeIf { it.isNotBlank() }
+            ?: BuildConfig.USDA_API_KEY
+        if (apiKey.isBlank()) {
+            Log.w(TAG, "No USDA API key available")
             return emptyList()
         }
         return try {
@@ -49,12 +51,18 @@ class UsdaProvider @Inject constructor(
     }
 
     private fun mapToCandidate(food: UsdaFood): FoodCandidate? {
-        val calories = food.foodNutrients.firstOrNull { it.nutrientId == NUTRIENT_ENERGY }?.value
-            ?: food.foodNutrients.firstOrNull { it.nutrientName?.contains("Energy", true) == true }?.value
-            ?: return null
         val protein = food.foodNutrients.firstOrNull { it.nutrientId == NUTRIENT_PROTEIN }?.value ?: 0.0
         val carbs = food.foodNutrients.firstOrNull { it.nutrientId == NUTRIENT_CARBS }?.value ?: 0.0
         val fat = food.foodNutrients.firstOrNull { it.nutrientId == NUTRIENT_FAT }?.value ?: 0.0
+        // Some Foundation/SR entries omit the Energy nutrient — derive kcal from macros
+        // (4/4/9) instead of dropping the food. Only drop if there's no usable data at all.
+        val calories = food.foodNutrients.firstOrNull { it.nutrientId == NUTRIENT_ENERGY }?.value
+            ?: food.foodNutrients.firstOrNull {
+                it.nutrientName?.contains("Energy", true) == true &&
+                    it.unitName?.equals("KCAL", true) == true
+            }?.value
+            ?: (protein * 4 + carbs * 4 + fat * 9).takeIf { it > 0 }
+            ?: return null
 
         val nutrients = buildList {
             food.foodNutrients.firstOrNull { it.nutrientId == NUTRIENT_FIBER }?.value?.let {
