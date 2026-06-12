@@ -58,6 +58,7 @@ fun DailyLogScreen(
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
     val entriesBySection by viewModel.entriesBySection.collectAsStateWithLifecycle()
     val dailyTotals by viewModel.dailyTotals.collectAsStateWithLifecycle()
+    val clipboard by viewModel.clipboard.collectAsStateWithLifecycle()
     val goalCalories by settingsVm.goalCalories.collectAsStateWithLifecycle()
     val goalProtein by settingsVm.goalProtein.collectAsStateWithLifecycle()
     val goalCarbs by settingsVm.goalCarbs.collectAsStateWithLifecycle()
@@ -208,7 +209,9 @@ fun DailyLogScreen(
                     section = section,
                     entries = entriesBySection[section] ?: emptyList(),
                     onAddEntry = { onAddEntry(section.name, selectedDate.toString()) },
-                    onImportPrevious = { viewModel.importPreviousSection(section) },
+                    onCopy = { viewModel.copySection(section) },
+                    onPaste = { viewModel.pasteSection(section) },
+                    hasCopied = clipboard?.isNotEmpty() == true,
                     onEntryTapped = onEntryTapped,
                     onDeleteEntry = { viewModel.deleteEntry(it) }
                 )
@@ -317,7 +320,9 @@ private fun MealCard(
     section: MealSection,
     entries: List<FoodLogEntryEntity>,
     onAddEntry: () -> Unit,
-    onImportPrevious: () -> Unit,
+    onCopy: () -> Unit,
+    onPaste: () -> Unit,
+    hasCopied: Boolean,
     onEntryTapped: (entryId: Long) -> Unit,
     onDeleteEntry: (entryId: Long) -> Unit
 ) {
@@ -382,14 +387,25 @@ private fun MealCard(
                         is DailyTotalsCalculator.DailyTotals.Empty -> { /* nothing */ }
                     }
                 }
-                // Copy yesterday's section
-                IconButton(onClick = onImportPrevious) {
+                // Copy this section to clipboard
+                IconButton(onClick = onCopy) {
                     Icon(
                         Icons.Filled.ContentCopy,
-                        contentDescription = "Copy yesterday's ${section.displayName}",
+                        contentDescription = "Copy ${section.displayName}",
                         tint = TextSecondary,
                         modifier = Modifier.size(18.dp)
                     )
+                }
+                // Paste clipboard to this section (only shown when clipboard has entries)
+                if (hasCopied) {
+                    IconButton(onClick = onPaste) {
+                        Icon(
+                            Icons.Filled.ContentPaste,
+                            contentDescription = "Paste to ${section.displayName}",
+                            tint = AccentGreen,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
                 // Primary action: add food
                 Button(

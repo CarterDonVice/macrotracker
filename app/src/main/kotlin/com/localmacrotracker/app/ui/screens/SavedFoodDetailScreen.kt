@@ -6,6 +6,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -34,9 +35,31 @@ fun SavedFoodDetailScreen(
     val sourceType by viewModel.sourceType.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val saveSuccess by viewModel.saveSuccess.collectAsState()
+    val deleteSuccess by viewModel.deleteSuccess.collectAsState()
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(saveSuccess) {
         if (saveSuccess) onBack()
+    }
+
+    LaunchedEffect(deleteSuccess) {
+        if (deleteSuccess) onBack()
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete Food") },
+            text = { Text("Remove \"$displayName\" from your library? This won't affect past log entries.") },
+            confirmButton = {
+                TextButton(onClick = { showDeleteConfirm = false; viewModel.deleteFood() }) {
+                    Text("Delete", color = androidx.compose.material3.MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+            }
+        )
     }
 
     Scaffold(
@@ -46,6 +69,12 @@ fun SavedFoodDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showDeleteConfirm = true }) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Delete food",
+                            tint = MaterialTheme.colorScheme.error)
                     }
                 }
             )

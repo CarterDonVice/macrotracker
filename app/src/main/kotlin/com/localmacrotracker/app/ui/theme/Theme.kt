@@ -4,17 +4,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val LightColorScheme = lightColorScheme(
+private val DarkColorScheme = darkColorScheme(
     primary = AccentGreen,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFB7DFCC),
-    onPrimaryContainer = TextPrimary,
+    onPrimary = Color(0xFF003820),
+    primaryContainer = Color(0xFF1A5C38),
+    onPrimaryContainer = Color(0xFFB7F5D4),
     secondary = EstimatedColor,
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFBADFF7),
-    onSecondaryContainer = TextPrimary,
+    onSecondary = Color(0xFF003060),
+    secondaryContainer = Color(0xFF1A3060),
+    onSecondaryContainer = Color(0xFFB8D9FF),
     tertiary = MacroCalories,
-    onTertiary = Color.White,
+    onTertiary = Color(0xFF3A1000),
     background = DarkBackground,
     onBackground = TextPrimary,
     surface = DarkSurface,
@@ -22,15 +22,15 @@ private val LightColorScheme = lightColorScheme(
     surfaceVariant = DarkSurfaceVariant,
     onSurfaceVariant = TextSecondary,
     error = ErrorRed,
-    onError = Color.White,
+    onError = Color(0xFF3A0000),
     outline = Divider,
-    outlineVariant = Color(0xFFE8F2EC)
+    outlineVariant = Color(0xFF48484A)
 )
 
 @Composable
 fun MacroTrackerTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = LightColorScheme,
+        colorScheme = DarkColorScheme,
         typography = AppTypography,
         content = content
     )

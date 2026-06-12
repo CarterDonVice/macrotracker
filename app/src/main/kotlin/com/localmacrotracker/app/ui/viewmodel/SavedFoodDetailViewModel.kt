@@ -48,6 +48,9 @@ class SavedFoodDetailViewModel @Inject constructor(
     private val _saveSuccess = MutableStateFlow(false)
     val saveSuccess: StateFlow<Boolean> = _saveSuccess
 
+    private val _deleteSuccess = MutableStateFlow(false)
+    val deleteSuccess: StateFlow<Boolean> = _deleteSuccess
+
     private var currentFood: SavedFoodEntity? = null
 
     fun loadFood(foodId: Long) {
@@ -73,6 +76,14 @@ class SavedFoodDetailViewModel @Inject constructor(
     fun setProtein(v: String) { _protein.value = v }
     fun setCarbs(v: String) { _carbs.value = v }
     fun setFat(v: String) { _fat.value = v }
+
+    fun deleteFood() {
+        val food = currentFood ?: return
+        viewModelScope.launch {
+            savedFoodDao.deleteFoodById(food.id)
+            _deleteSuccess.value = true
+        }
+    }
 
     fun saveFood() {
         val food = currentFood ?: return

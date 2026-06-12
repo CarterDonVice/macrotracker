@@ -35,10 +35,15 @@ class OcrLabelParserImpl @Inject constructor() : OcrLabelParser {
 
             // Serving size — "Serving Size 2/3 cup (55g)", "Serv. size 30 g", "Per serving"
             if (servingText == null && isServingSizeLine(line)) {
-                servingText = raw
-                // Capture grams when present (often in parentheses) for later scaling.
-                Regex("""(\d+(?:\.\d+)?)\s*g""", RegexOption.IGNORE_CASE)
-                    .find(raw)?.groupValues?.get(1)?.toDoubleOrNull()
+                // When the label heading has no digit value on the same line (e.g., bare "Serving Size"),
+                // append the next line which usually contains the actual serving amount.
+                val combined = if (raw.any { it.isDigit() }) raw
+                    else if (nextRaw?.any { it.isDigit() } == true) "$raw $nextRaw"
+                    else raw
+                servingText = combined
+                // Capture grams — handles "55g", "55 g", "(55g)", "(55 g)"
+                Regex("""\(?\s*(\d+(?:\.\d+)?)\s*g\s*\)?""", RegexOption.IGNORE_CASE)
+                    .find(combined)?.groupValues?.get(1)?.toDoubleOrNull()
                     ?.let { servingWeightGrams = it }
             }
 
@@ -115,6 +120,36 @@ class OcrLabelParserImpl @Inject constructor() : OcrLabelParser {
             }
         }
 
+        // ── Third pass: serving size from common unit-bearing lines ──────────
+        if (servingText == null) {
+            for (raw in lines) {
+                val line = raw.lowercase()
+                // Skip lines that are clearly something else
+                if (line.contains("calorie") || line.contains("total fat") ||
+                    line.contains("protein") || line.contains("sodium") ||
+                    line.contains("cholesterol") || line.contains("daily value")
+                ) continue
+                // Look for lines with a digit + common serving unit that could be a serving desc
+                if (raw.any { it.isDigit() } &&
+                    Regex("""(?:cup|tbsp|tsp|oz|fl oz|piece|slice|scoop|bar|packet|container|\d\s*g\b)""",
+                        RegexOption.IGNORE_CASE).containsMatchIn(raw)
+                ) {
+                    servingText = raw
+                    Regex("""\(?\s*(\d+(?:\.\d+)?)\s*g\s*\)?""", RegexOption.IGNORE_CASE)
+                        .find(raw)?.groupValues?.get(1)?.toDoubleOrNull()
+                        ?.let { servingWeightGrams = it }
+                    break
+                }
+            }
+        }
+
+        // ── Calorie fallback: derive from macros when all three are present ──
+        if (result.calories == null &&
+            result.protein != null && result.carbs != null && result.fat != null
+        ) {
+            result.calories = result.protein!! * 4 + result.carbs!! * 4 + result.fat!! * 9
+        }
+
         Log.d(TAG, "OCR parsed: cal=${result.calories}, pro=${result.protein}, carb=${result.carbs}, fat=${result.fat}")
 
         return ParsedNutritionDraft(
@@ -135,7 +170,8 @@ class OcrLabelParserImpl @Inject constructor() : OcrLabelParser {
     /** Matches serving-size lines across common label wordings. */
     private fun isServingSizeLine(line: String): Boolean =
         line.contains("serving size") || line.contains("serv. size") ||
-            line.contains("serv size") || line.contains("serving:") ||
+            line.contains("serv size") || line.contains("serving sz") ||
+            line.contains("serving:") || line.contains("amount per serving") ||
             line.startsWith("per serving") || line.startsWith("serving ") ||
             (line.startsWith("serving") && line.any { it.isDigit() })
 

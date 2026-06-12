@@ -52,6 +52,9 @@ class DailyLogViewModel @Inject constructor(
             DailyTotalsCalculator.DailyTotals.Empty
         )
 
+    private val _clipboard = MutableStateFlow<List<FoodLogEntryEntity>?>(null)
+    val clipboard: StateFlow<List<FoodLogEntryEntity>?> = _clipboard.asStateFlow()
+
     fun setDate(date: LocalDate) {
         _selectedDate.value = date
     }
@@ -59,6 +62,31 @@ class DailyLogViewModel @Inject constructor(
     fun deleteEntry(entryId: Long) {
         viewModelScope.launch {
             foodLogDao.deleteEntryById(entryId)
+        }
+    }
+
+    fun copySection(section: MealSection) {
+        viewModelScope.launch {
+            _clipboard.value = foodLogDao.getEntriesForDateAndSection(
+                _selectedDate.value.toString(), section.name
+            )
+        }
+    }
+
+    fun pasteSection(targetSection: MealSection) {
+        val entries = _clipboard.value?.takeIf { it.isNotEmpty() } ?: return
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val newEntries = entries.map { e ->
+                e.copy(
+                    id = 0,
+                    logDate = _selectedDate.value.toString(),
+                    mealSection = targetSection.name,
+                    createdAt = now,
+                    updatedAt = now
+                )
+            }
+            foodLogDao.insertEntries(newEntries)
         }
     }
 

@@ -35,6 +35,7 @@ fun SavedFoodsSearchScreen(
     onBack: () -> Unit,
     onFoodSelected: () -> Unit,
     onFoodDetail: (foodId: Long) -> Unit,
+    browseOnly: Boolean = false,
     viewModel: SavedFoodsViewModel = hiltViewModel()
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
@@ -162,8 +163,12 @@ fun SavedFoodsSearchScreen(
                         SavedFoodRow(
                             food = food,
                             onTap = {
-                                viewModel.addToLog(food, mealSection, logDate)
-                                onFoodSelected()
+                                if (browseOnly) {
+                                    onFoodDetail(food.id)
+                                } else {
+                                    viewModel.addToLog(food, mealSection, logDate)
+                                    onFoodSelected()
+                                }
                             },
                             onDetail = { onFoodDetail(food.id) }
                         )

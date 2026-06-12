@@ -45,6 +45,9 @@ sealed class Screen(val route: String) {
     object SavedFoodDetail : Screen("saved_food_detail/{food_id}") {
         fun routeFor(foodId: Long) = "saved_food_detail/$foodId"
     }
+    object SavedFoodsBrowse : Screen("saved_foods_browse/{log_date}") {
+        fun routeFor(logDate: String) = "saved_foods_browse/$logDate"
+    }
     object Settings : Screen("settings")
     object WeightTracker : Screen("weight_tracker")
 }
@@ -66,8 +69,7 @@ fun AppNavigation() {
                     navController.navigate(Screen.SavedFoodsSearch.routeFor(mealSection, logDate))
                 },
                 onBrowseFoods = { logDate ->
-                    // Direct database access — bypasses meal picker, defaults to BREAKFAST
-                    navController.navigate(Screen.SavedFoodsSearch.routeFor("BREAKFAST", logDate))
+                    navController.navigate(Screen.SavedFoodsBrowse.routeFor(logDate))
                 },
                 onNavigateToWeightTracker = {
                     navController.navigate(Screen.WeightTracker.route)
@@ -247,6 +249,21 @@ fun AppNavigation() {
             SavedFoodDetailScreen(
                 foodId = foodId,
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.SavedFoodsBrowse.route,
+            arguments = listOf(navArgument("log_date") { type = NavType.StringType })
+        ) { backStack ->
+            val date = backStack.arguments?.getString("log_date") ?: LocalDate.now().toString()
+            SavedFoodsSearchScreen(
+                mealSection = "BREAKFAST",
+                logDate = date,
+                browseOnly = true,
+                onBack = { navController.popBackStack() },
+                onFoodSelected = { },
+                onFoodDetail = { foodId -> navController.navigate(Screen.SavedFoodDetail.routeFor(foodId)) }
             )
         }
 
