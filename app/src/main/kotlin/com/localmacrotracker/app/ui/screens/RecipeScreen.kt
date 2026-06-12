@@ -21,6 +21,7 @@ import com.localmacrotracker.app.ui.viewmodel.RecipeViewModel
 import java.time.LocalDate
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeScreen(
     mealSection: String,

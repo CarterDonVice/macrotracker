@@ -15,6 +15,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.localmacrotracker.app.ui.viewmodel.FoodReviewViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FoodReviewScreen(
     entryId: Long,          // passed by nav for reference; ViewModel loads via SavedStateHandle
