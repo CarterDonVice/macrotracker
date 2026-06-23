@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 @HiltViewModel
 class FoodSearchViewModel @Inject constructor(
@@ -128,7 +129,8 @@ class FoodSearchViewModel @Inject constructor(
                     servingTextSnapshot = candidate.servingText,
                     quantity = quantity,
                     unit = "serving",
-                    caloriesExact = candidate.calories * quantity,
+                    // Calories rounded to the nearest whole number; macros keep precision.
+                    caloriesExact = (candidate.calories * quantity).roundToInt().toDouble(),
                     proteinExact = candidate.proteinGrams * quantity,
                     carbsExact = candidate.carbsGrams * quantity,
                     fatExact = candidate.fatGrams * quantity,

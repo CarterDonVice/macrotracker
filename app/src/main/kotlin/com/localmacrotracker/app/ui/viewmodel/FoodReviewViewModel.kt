@@ -11,10 +11,14 @@ import com.localmacrotracker.app.data.model.FoodCategory
 import com.localmacrotracker.app.data.model.SourceType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 @HiltViewModel
 class FoodReviewViewModel @Inject constructor(
@@ -28,7 +32,9 @@ class FoodReviewViewModel @Inject constructor(
     private val _entry = MutableStateFlow<FoodLogEntryEntity?>(null)
     val entry: StateFlow<FoodLogEntryEntity?> = _entry.asStateFlow()
 
-    // Editable fields
+    // Editable fields.
+    // calories/protein/carbs/fat below are the PER-SERVING base values. The logged
+    // total is base * quantity, recomputed live whenever the serving amount changes.
     private val _displayName = MutableStateFlow("")
     val displayName: StateFlow<String> = _displayName.asStateFlow()
 
@@ -50,6 +56,23 @@ class FoodReviewViewModel @Inject constructor(
     private val _unit = MutableStateFlow("serving")
     val unit: StateFlow<String> = _unit.asStateFlow()
 
+    // Live-scaled totals (base * quantity). Calories rounded to the nearest whole number.
+    val scaledCalories: StateFlow<Int> = combine(_calories, _quantity) { c, q ->
+        (c * q).roundToInt()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    val scaledProtein: StateFlow<Double> = combine(_protein, _quantity) { p, q ->
+        p * q
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
+
+    val scaledCarbs: StateFlow<Double> = combine(_carbs, _quantity) { c, q ->
+        c * q
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
+
+    val scaledFat: StateFlow<Double> = combine(_fat, _quantity) { f, q ->
+        f * q
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
+
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
 
@@ -61,11 +84,18 @@ class FoodReviewViewModel @Inject constructor(
             val loaded = foodLogDao.getEntryById(entryId)
             _entry.value = loaded
             if (loaded != null) {
+                // Stored macros are the total for the logged quantity. Divide back out to
+                // a per-serving base so we can re-scale live when the user edits the amount.
+                val qty = loaded.quantity.takeIf { it > 0.0 } ?: 1.0
+                val totalCal = loaded.caloriesExact ?: loaded.caloriesMin ?: 0.0
+                val totalPro = loaded.proteinExact ?: loaded.proteinMin ?: 0.0
+                val totalCarb = loaded.carbsExact ?: loaded.carbsMin ?: 0.0
+                val totalFat = loaded.fatExact ?: loaded.fatMin ?: 0.0
                 _displayName.value = loaded.displayNameSnapshot
-                _calories.value = loaded.caloriesExact ?: loaded.caloriesMin ?: 0.0
-                _protein.value = loaded.proteinExact ?: loaded.proteinMin ?: 0.0
-                _carbs.value = loaded.carbsExact ?: loaded.carbsMin ?: 0.0
-                _fat.value = loaded.fatExact ?: loaded.fatMin ?: 0.0
+                _calories.value = totalCal / qty
+                _protein.value = totalPro / qty
+                _carbs.value = totalCarb / qty
+                _fat.value = totalFat / qty
                 _quantity.value = loaded.quantity
                 _unit.value = loaded.unit
             }
@@ -85,14 +115,17 @@ class FoodReviewViewModel @Inject constructor(
         viewModelScope.launch {
             _isSaving.value = true
             try {
+                // Persist the live-scaled totals (base * quantity). Calories rounded to
+                // the nearest whole number per the user's preference.
+                val qty = _quantity.value
                 val updated = current.copy(
                     displayNameSnapshot = _displayName.value,
-                    quantity = _quantity.value,
+                    quantity = qty,
                     unit = _unit.value,
-                    caloriesExact = _calories.value,
-                    proteinExact = _protein.value,
-                    carbsExact = _carbs.value,
-                    fatExact = _fat.value,
+                    caloriesExact = (_calories.value * qty).roundToInt().toDouble(),
+                    proteinExact = _protein.value * qty,
+                    carbsExact = _carbs.value * qty,
+                    fatExact = _fat.value * qty,
                     caloriesMin = null,
                     caloriesMax = null,
                     proteinMin = null,

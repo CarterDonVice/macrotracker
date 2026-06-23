@@ -35,6 +35,7 @@ import com.localmacrotracker.app.ui.components.PressableCard
 import com.localmacrotracker.app.ui.theme.*
 import com.localmacrotracker.app.ui.viewmodel.FoodSearchViewModel
 import java.time.LocalDate
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -255,7 +256,7 @@ private fun AddFoodBottomSheet(
     var saveFood by remember { mutableStateOf(!food.isLocalSaved) }
 
     val qty = quantityText.toDoubleOrNull() ?: 1.0
-    val scaledCalories = (food.calories * qty).toInt()
+    val scaledCalories = (food.calories * qty).roundToInt()
     val scaledProtein = food.proteinGrams * qty
     val scaledCarbs = food.carbsGrams * qty
     val scaledFat = food.fatGrams * qty
