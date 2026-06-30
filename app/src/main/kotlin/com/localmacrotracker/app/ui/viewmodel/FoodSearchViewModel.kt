@@ -98,24 +98,31 @@ class FoodSearchViewModel @Inject constructor(
                 val savedFoodId: Long? = when {
                     candidate.isLocalSaved -> candidate.savedFoodId
                     saveFood -> {
-                        val entity = SavedFoodEntity(
-                            displayName = candidate.displayName,
-                            originalName = candidate.originalName,
-                            category = FoodCategory.PREMADE_FOOD.name,
-                            barcode = candidate.barcode,
-                            searchIndexText = candidate.displayName.lowercase(),
-                            servingText = candidate.servingText,
-                            servingWeightGrams = candidate.servingWeightGrams,
-                            servingVolumeMl = candidate.servingVolumeMl,
-                            calories = candidate.calories,
-                            proteinGrams = candidate.proteinGrams,
-                            carbsGrams = candidate.carbsGrams,
-                            fatGrams = candidate.fatGrams,
-                            exactnessType = ExactnessType.EXACT.name,
-                            sourceType = candidate.sourceType.name,
-                            sourceUrl = candidate.sourceUrl
+                        // Dedup: if this food is already in the library, reuse it instead of
+                        // saving a duplicate. Prefer barcode (exact product), fall back to an
+                        // exact name match for foods that carry no barcode (e.g. USDA generics).
+                        val existing = candidate.barcode?.takeIf { it.isNotBlank() }
+                            ?.let { savedFoodDao.getFoodByBarcode(it) }
+                            ?: savedFoodDao.getFoodByExactName(candidate.displayName)
+                        existing?.id ?: savedFoodDao.insertFood(
+                            SavedFoodEntity(
+                                displayName = candidate.displayName,
+                                originalName = candidate.originalName,
+                                category = FoodCategory.PREMADE_FOOD.name,
+                                barcode = candidate.barcode,
+                                searchIndexText = candidate.displayName.lowercase(),
+                                servingText = candidate.servingText,
+                                servingWeightGrams = candidate.servingWeightGrams,
+                                servingVolumeMl = candidate.servingVolumeMl,
+                                calories = candidate.calories,
+                                proteinGrams = candidate.proteinGrams,
+                                carbsGrams = candidate.carbsGrams,
+                                fatGrams = candidate.fatGrams,
+                                exactnessType = ExactnessType.EXACT.name,
+                                sourceType = candidate.sourceType.name,
+                                sourceUrl = candidate.sourceUrl
+                            )
                         )
-                        savedFoodDao.insertFood(entity)
                     }
                     else -> null
                 }

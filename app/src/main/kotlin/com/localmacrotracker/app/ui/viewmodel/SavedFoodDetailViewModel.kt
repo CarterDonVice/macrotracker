@@ -24,6 +24,9 @@ class SavedFoodDetailViewModel @Inject constructor(
     private val _servingWeightGrams = MutableStateFlow("")
     val servingWeightGrams: StateFlow<String> = _servingWeightGrams
 
+    private val _servingVolumeMl = MutableStateFlow("")
+    val servingVolumeMl: StateFlow<String> = _servingVolumeMl
+
     private val _calories = MutableStateFlow("")
     val calories: StateFlow<String> = _calories
 
@@ -60,6 +63,7 @@ class SavedFoodDetailViewModel @Inject constructor(
             _displayName.value = food.displayName
             _servingText.value = food.servingText ?: ""
             _servingWeightGrams.value = food.servingWeightGrams?.toString() ?: ""
+            _servingVolumeMl.value = food.servingVolumeMl?.toString() ?: ""
             _calories.value = food.calories.toString()
             _protein.value = food.proteinGrams.toString()
             _carbs.value = food.carbsGrams.toString()
@@ -72,6 +76,7 @@ class SavedFoodDetailViewModel @Inject constructor(
     fun setDisplayName(v: String) { _displayName.value = v }
     fun setServingText(v: String) { _servingText.value = v }
     fun setServingWeight(v: String) { _servingWeightGrams.value = v }
+    fun setServingVolume(v: String) { _servingVolumeMl.value = v }
     fun setCalories(v: String) { _calories.value = v }
     fun setProtein(v: String) { _protein.value = v }
     fun setCarbs(v: String) { _carbs.value = v }
@@ -94,6 +99,7 @@ class SavedFoodDetailViewModel @Inject constructor(
                 searchIndexText = _displayName.value.trim().lowercase(),
                 servingText = _servingText.value.takeIf { it.isNotBlank() },
                 servingWeightGrams = _servingWeightGrams.value.toDoubleOrNull(),
+                servingVolumeMl = _servingVolumeMl.value.toDoubleOrNull(),
                 calories = _calories.value.toDoubleOrNull() ?: food.calories,
                 proteinGrams = _protein.value.toDoubleOrNull() ?: food.proteinGrams,
                 carbsGrams = _carbs.value.toDoubleOrNull() ?: food.carbsGrams,

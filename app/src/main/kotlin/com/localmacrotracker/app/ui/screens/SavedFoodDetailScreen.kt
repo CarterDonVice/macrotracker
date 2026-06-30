@@ -27,6 +27,7 @@ fun SavedFoodDetailScreen(
     val displayName by viewModel.displayName.collectAsState()
     val servingText by viewModel.servingText.collectAsState()
     val servingWeightGrams by viewModel.servingWeightGrams.collectAsState()
+    val servingVolumeMl by viewModel.servingVolumeMl.collectAsState()
     val calories by viewModel.calories.collectAsState()
     val protein by viewModel.protein.collectAsState()
     val carbs by viewModel.carbs.collectAsState()
@@ -116,6 +117,18 @@ fun SavedFoodDetailScreen(
                 label = { Text("Serving Weight (g)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = servingVolumeMl,
+                onValueChange = viewModel::setServingVolume,
+                label = { Text("Serving Volume (ml)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                "Set a weight or volume to log this food by grams/oz or ml/cups and have macros scale automatically.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             HorizontalDivider()

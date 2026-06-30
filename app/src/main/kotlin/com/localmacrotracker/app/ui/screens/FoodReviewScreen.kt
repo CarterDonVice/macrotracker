@@ -7,15 +7,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -38,6 +35,9 @@ fun FoodReviewScreen(
     val fat by viewModel.fat.collectAsStateWithLifecycle()
     val quantity by viewModel.quantity.collectAsStateWithLifecycle()
     val unit by viewModel.unit.collectAsStateWithLifecycle()
+    val availableUnits by viewModel.availableUnits.collectAsStateWithLifecycle()
+    val refWeightGrams by viewModel.refWeightGrams.collectAsStateWithLifecycle()
+    val refVolumeMl by viewModel.refVolumeMl.collectAsStateWithLifecycle()
     val scaledCalories by viewModel.scaledCalories.collectAsStateWithLifecycle()
     val scaledProtein by viewModel.scaledProtein.collectAsStateWithLifecycle()
     val scaledCarbs by viewModel.scaledCarbs.collectAsStateWithLifecycle()
@@ -92,21 +92,14 @@ fun FoodReviewScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Serving amount — free custom entry plus quick ± steppers.
-            Text("Serving amount", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+            // Amount + unit. Type any custom amount; pick the unit (serving, or a weight /
+            // volume unit if the food defines one). Everything scales live from there.
+            Text("Amount", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+            var unitExpanded by remember { mutableStateOf(false) }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                OutlinedIconButton(
-                    onClick = {
-                        val v = ((qtyStr.toDoubleOrNull() ?: quantity) - 0.5).coerceAtLeast(0.1)
-                        qtyStr = trimNum(v)
-                        viewModel.setQuantity(v)
-                    },
-                    modifier = Modifier.size(48.dp)
-                ) { Icon(Icons.Default.Remove, "Decrease") }
-
                 OutlinedTextField(
                     value = qtyStr,
                     onValueChange = { s ->
@@ -115,31 +108,49 @@ fun FoodReviewScreen(
                             s.toDoubleOrNull()?.let { viewModel.setQuantity(it) }
                         }
                     },
+                    label = { Text("Amount") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center
-                    ),
-                    modifier = Modifier.width(90.dp)
-                )
-
-                OutlinedIconButton(
-                    onClick = {
-                        val v = (qtyStr.toDoubleOrNull() ?: quantity) + 0.5
-                        qtyStr = trimNum(v)
-                        viewModel.setQuantity(v)
-                    },
-                    modifier = Modifier.size(48.dp)
-                ) { Icon(Icons.Default.Add, "Increase") }
-
-                OutlinedTextField(
-                    value = unit,
-                    onValueChange = viewModel::setUnit,
-                    label = { Text("Unit") },
-                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                     modifier = Modifier.weight(1f)
                 )
+                ExposedDropdownMenuBox(
+                    expanded = unitExpanded,
+                    onExpandedChange = { unitExpanded = it },
+                    modifier = Modifier.weight(1.2f)
+                ) {
+                    OutlinedTextField(
+                        value = unit,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Unit") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitExpanded) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = unitExpanded,
+                        onDismissRequest = { unitExpanded = false }
+                    ) {
+                        availableUnits.forEach { u ->
+                            DropdownMenuItem(
+                                text = { Text("${u.label}   ${u.fullName}") },
+                                onClick = {
+                                    viewModel.setUnit(u.label)
+                                    // setUnit may convert the amount to keep servings constant.
+                                    qtyStr = trimNum(viewModel.quantity.value)
+                                    unitExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            // Reference reminder so it's clear what the macros below are based on.
+            servingBasis(refWeightGrams, refVolumeMl)?.let { basis ->
+                Text(basis, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             }
 
             // Live totals — recompute instantly as the serving amount changes.
@@ -251,6 +262,15 @@ private fun TotalStat(value: String, label: String, color: androidx.compose.ui.g
         )
         Text(label, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
     }
+}
+
+/** Human-readable note describing what one serving of macros is based on. */
+private fun servingBasis(refWeightGrams: Double?, refVolumeMl: Double?): String? = when {
+    refWeightGrams != null && refWeightGrams > 0 ->
+        "Macros below are for one serving (${trimNum(refWeightGrams)} g). Change the amount or unit to rescale."
+    refVolumeMl != null && refVolumeMl > 0 ->
+        "Macros below are for one serving (${trimNum(refVolumeMl)} ml). Change the amount or unit to rescale."
+    else -> null
 }
 
 /** Format a double without a trailing ".0" for whole numbers; otherwise one decimal. */

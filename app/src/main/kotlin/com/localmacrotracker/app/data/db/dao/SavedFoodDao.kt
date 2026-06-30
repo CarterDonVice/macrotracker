@@ -42,6 +42,15 @@ interface SavedFoodDao {
     @Query("SELECT * FROM saved_foods WHERE barcode = :barcode LIMIT 1")
     suspend fun getFoodByBarcode(barcode: String): SavedFoodEntity?
 
+    /** Exact (case-insensitive) name match — used to avoid saving duplicates from search. */
+    @Query("""
+        SELECT * FROM saved_foods
+        WHERE displayName = :name COLLATE NOCASE
+        ORDER BY updatedAt DESC
+        LIMIT 1
+    """)
+    suspend fun getFoodByExactName(name: String): SavedFoodEntity?
+
     @Query("""
         SELECT * FROM saved_foods
         WHERE displayName LIKE '%' || :name || '%'
